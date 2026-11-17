@@ -3,8 +3,17 @@
 [ext_resource type="PackedScene" path="res://scenes/actors/actor.tscn" id="1_actor"]
 [ext_resource type="Script" path="res://scripts/actors/player.gd" id="2_player"]
 [ext_resource type="Resource" path="res://data/player_stats.tres" id="3_stats"]
+[ext_resource type="Script" path="res://scripts/actors/attack_data.gd" id="4_attack_data"]
+[ext_resource type="Resource" path="res://data/attacks/player/jab.tres" id="5_jab"]
+[ext_resource type="Resource" path="res://data/attacks/player/cross.tres" id="6_cross"]
+[ext_resource type="Resource" path="res://data/attacks/player/kick.tres" id="7_kick"]
+[ext_resource type="Resource" path="res://data/attacks/player/uppercut.tres" id="8_uppercut"]
+[ext_resource type="Resource" path="res://data/attacks/player/jump_kick.tres" id="9_jump_kick"]
 
 [node name="Player" instance=ExtResource("1_actor")]
 script = ExtResource("2_player")
+combo = Array[ExtResource("4_attack_data")]([ExtResource("5_jab"), ExtResource("6_cross"), ExtResource("7_kick"), ExtResource("8_uppercut")])
+jump_attack = ExtResource("9_jump_kick")
 stats = ExtResource("3_stats")
 placeholder_color = Color(1, 0.42, 0.7, 1)
+team = 0

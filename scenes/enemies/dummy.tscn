@@ -1,0 +1,16 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/actors/actor.tscn" id="1_actor"]
+[ext_resource type="Script" path="res://scripts/actors/dummy.gd" id="2_dummy"]
+[ext_resource type="Resource" path="res://data/dummy_stats.tres" id="3_stats"]
+[ext_resource type="Script" path="res://scripts/ui/actor_health_bar.gd" id="4_health_bar"]
+
+[node name="Dummy" instance=ExtResource("1_actor")]
+script = ExtResource("2_dummy")
+stats = ExtResource("3_stats")
+placeholder_color = Color(0.62, 0.62, 0.64, 1)
+team = 1
+
+[node name="HealthBar" type="Node2D" parent="."]
+position = Vector2(0, -194)
+script = ExtResource("4_health_bar")

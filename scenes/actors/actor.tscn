@@ -1,6 +1,14 @@
 [gd_scene format=3]
 
 [ext_resource type="Script" path="res://scripts/actors/actor.gd" id="1_actor"]
+[ext_resource type="Script" path="res://scripts/actors/hurtbox.gd" id="2_hurtbox"]
+[ext_resource type="Script" path="res://scripts/actors/hitbox.gd" id="3_hitbox"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_body"]
+size = Vector2(60, 180)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_hit"]
+size = Vector2(70, 30)
 
 [node name="Actor" type="Node2D"]
 script = ExtResource("1_actor")
@@ -24,3 +32,33 @@ offset_right = 30.0
 offset_bottom = -148.0
 mouse_filter = 2
 color = Color(1, 1, 1, 0.85)
+
+[node name="Arm" type="ColorRect" parent="Visual"]
+visible = false
+offset_left = 30.0
+offset_top = -150.0
+offset_right = 90.0
+offset_bottom = -138.0
+mouse_filter = 2
+color = Color(0.4, 0.4, 0.4, 1)
+
+[node name="Hurtbox" type="Area2D" parent="."]
+collision_layer = 2
+collision_mask = 0
+monitoring = false
+script = ExtResource("2_hurtbox")
+
+[node name="Shape" type="CollisionShape2D" parent="Hurtbox"]
+position = Vector2(0, -90)
+shape = SubResource("RectangleShape2D_body")
+
+[node name="Hitbox" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 1
+monitorable = false
+script = ExtResource("3_hitbox")
+
+[node name="Shape" type="CollisionShape2D" parent="Hitbox"]
+position = Vector2(55, -135)
+shape = SubResource("RectangleShape2D_hit")
+disabled = true
