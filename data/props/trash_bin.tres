@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="PropData" format=3]
+
+[ext_resource type="Script" path="res://scripts/props/prop_data.gd" id="1_prop"]
+[ext_resource type="Script" path="res://scripts/props/pickup_data.gd" id="2_pickup"]
+[ext_resource type="Resource" path="res://data/pickups/hot_dog.tres" id="3_hot_dog"]
+[ext_resource type="Resource" path="res://data/pickups/cash.tres" id="4_cash"]
+
+[resource]
+script = ExtResource("1_prop")
+max_health = 2
+knockdown_launch_velocity = 380.0
+death_blink_time = 0.6
+prop_type = "trash_bin"
+placeholder_color = Color(0.2, 0.7, 0.65, 1)
+body_size = Vector2(64, 84)
+hurtbox_height = 170.0
+hits_to_break = 2
+drops = Array[ExtResource("2_pickup")]([ExtResource("3_hot_dog"), ExtResource("4_cash")])

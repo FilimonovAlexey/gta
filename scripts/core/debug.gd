@@ -6,7 +6,8 @@ extends Node
 ## и полосу глубины. Узлы читают Debug.enabled или подписываются на toggled.
 ## В режиме отладки: R (debug_revive) воскрешает героиню, G (debug_god_mode) —
 ## бессмертие героини, 1/2/3 (debug_spawn_1..3) — спавн врага соответствующего
-## типа (список типов — у EnemySpawner уровня).
+## типа (список типов — у EnemySpawner уровня), N (debug_kill_all) — убить всех
+## врагов на экране (слушает LevelDirector).
 ## Пользовательские аргументы: --debug-draw (отрисовка сразу), --god-mode (бессмертие сразу).
 ##
 ## class_name не задаётся намеренно: он конфликтовал бы с именем autoload.
@@ -19,6 +20,8 @@ signal revive_requested
 signal god_mode_changed(is_on: bool)
 ## Запрошен спавн врага с индексом index (0 — клавиша 1).
 signal spawn_requested(index: int)
+## Запрошено убийство всех врагов на экране (N).
+signal kill_all_requested
 
 ## Действия спавна по порядку индексов.
 const SPAWN_ACTIONS: Array[StringName] = [&"debug_spawn_1", &"debug_spawn_2", &"debug_spawn_3"]
@@ -49,6 +52,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		god_mode = not god_mode
 		print("Бессмертие героини: ", "вкл" if god_mode else "выкл")
 		god_mode_changed.emit(god_mode)
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("debug_kill_all"):
+		kill_all_requested.emit()
 		get_viewport().set_input_as_handled()
 	else:
 		for i in SPAWN_ACTIONS.size():

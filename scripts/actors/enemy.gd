@@ -64,6 +64,8 @@ const SIDE_IMBALANCE: int = 2
 const SEPARATION_RADIUS: float = 90.0
 const SEPARATION_DEPTH_SCALE: float = 2.5
 const SEPARATION_STRENGTH: float = 0.9
+## Место ожидания должно быть хотя бы на столько внутри экрана, px.
+const WAIT_SCREEN_MARGIN: float = 30.0
 ## Минимальное ожидание перед просьбой о токене: от спокойного к агрессивному, с.
 const MIN_WAIT_CALM: float = 1.6
 const MIN_WAIT_AGGRESSIVE: float = 0.3
@@ -391,10 +393,9 @@ func _choose_side() -> void:
 	var same: int = right if natural > 0 else left
 	var opposite: int = left if natural > 0 else right
 	var side: int = -natural if same - opposite >= SIDE_IMBALANCE else natural
-	if walk_bounds.has_area():
-		var x: float = _target.position.x + side * _wait_distance
-		if x < walk_bounds.position.x or x > walk_bounds.end.x:
-			side = -side
+	# Места нет (край улицы) или оно за кадром, а с другой стороны есть — на другую сторону.
+	if not _is_wait_x_ok(_target.position.x + side * _wait_distance) and _is_wait_x_ok(_target.position.x - side * _wait_distance):
+		side = -side
 	_side = side
 	# Ряд: чем больше своих ближе к героине, тем дальше место ожидания.
 	var my_distance: float = absf(position.x - _target.position.x)
@@ -405,6 +406,14 @@ func _choose_side() -> void:
 			continue
 		if other._side == _side and absf(other.position.x - _target.position.x) < my_distance:
 			_slot_rank += 1
+
+
+## Можно ли ждать на x: в пределах улицы и на экране (в замке камеры за кадром не стоят).
+func _is_wait_x_ok(x: float) -> bool:
+	if walk_bounds.has_area() and (x < walk_bounds.position.x or x > walk_bounds.end.x):
+		return false
+	var view: Rect2 = StreetCamera.get_visible_world_rect(get_viewport())
+	return x >= view.position.x + WAIT_SCREEN_MARGIN and x <= view.end.x - WAIT_SCREEN_MARGIN
 
 
 ## Место ожидания рядом с героиней.

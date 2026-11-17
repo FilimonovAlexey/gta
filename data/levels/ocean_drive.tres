@@ -1,0 +1,335 @@
+[gd_resource type="Resource" script_class="LevelData" format=3]
+
+[ext_resource type="Script" path="res://scripts/level/level_data.gd" id="1_level"]
+[ext_resource type="Script" path="res://scripts/level/level_segment.gd" id="2_segment"]
+[ext_resource type="Script" path="res://scripts/level/wave_data.gd" id="3_wave"]
+[ext_resource type="Script" path="res://scripts/level/wave_spawn.gd" id="4_spawn"]
+[ext_resource type="Script" path="res://scripts/level/background_layer_data.gd" id="5_layer"]
+[ext_resource type="Script" path="res://scripts/level/prop_placement.gd" id="6_placement"]
+[ext_resource type="Resource" path="res://data/enemies/patrol.tres" id="7_patrol"]
+[ext_resource type="Resource" path="res://data/enemies/bike.tres" id="8_bike"]
+[ext_resource type="Resource" path="res://data/enemies/riot.tres" id="9_riot"]
+[ext_resource type="Resource" path="res://data/props/newspaper_box.tres" id="10_newspaper"]
+[ext_resource type="Resource" path="res://data/props/trash_bin.tres" id="11_trash"]
+
+[sub_resource type="Resource" id="Spawn_s1w1_1"]
+script = ExtResource("4_spawn")
+enemy = ExtResource("7_patrol")
+side = 1
+depth = 0.3
+delay = 0.0
+
+[sub_resource type="Resource" id="Spawn_s1w1_2"]
+script = ExtResource("4_spawn")
+enemy = ExtResource("7_patrol")
+side = 0
+depth = 0.7
+delay = 0.6
+
+[sub_resource type="Resource" id="Wave_s1_1"]
+script = ExtResource("3_wave")
+spawns = Array[ExtResource("4_spawn")]([SubResource("Spawn_s1w1_1"), SubResource("Spawn_s1w1_2")])
+
+[sub_resource type="Resource" id="Spawn_s1w2_1"]
+script = ExtResource("4_spawn")
+enemy = ExtResource("8_bike")
+side = 1
+depth = 0.4
+delay = 0.0
+
+[sub_resource type="Resource" id="Spawn_s1w2_2"]
+script = ExtResource("4_spawn")
+enemy = ExtResource("8_bike")
+side = 0
+depth = 0.75
+delay = 0.5
+
+[sub_resource type="Resource" id="Wave_s1_2"]
+script = ExtResource("3_wave")
+spawns = Array[ExtResource("4_spawn")]([SubResource("Spawn_s1w2_1"), SubResource("Spawn_s1w2_2")])
+
+[sub_resource type="Resource" id="Segment_1"]
+script = ExtResource("2_segment")
+lock_x = 1500.0
+waves = Array[ExtResource("3_wave")]([SubResource("Wave_s1_1"), SubResource("Wave_s1_2")])
+
+[sub_resource type="Resource" id="Spawn_s2w1_1"]
+script = ExtResource("4_spawn")
+enemy = ExtResource("7_patrol")
+side = 1
+depth = 0.3
+delay = 0.0
+
+[sub_resource type="Resource" id="Spawn_s2w1_2"]
+script = ExtResource("4_spawn")
+enemy = ExtResource("8_bike")
+side = 0
+depth = 0.6
+delay = 0.4
+
+[sub_resource type="Resource" id="Spawn_s2w1_3"]
+script = ExtResource("4_spawn")
+enemy = ExtResource("7_patrol")
+side = 1
+depth = 0.8
+delay = 1.0
+
+[sub_resource type="Resource" id="Wave_s2_1"]
+script = ExtResource("3_wave")
+spawns = Array[ExtResource("4_spawn")]([SubResource("Spawn_s2w1_1"), SubResource("Spawn_s2w1_2"), SubResource("Spawn_s2w1_3")])
+
+[sub_resource type="Resource" id="Spawn_s2w2_1"]
+script = ExtResource("4_spawn")
+enemy = ExtResource("9_riot")
+side = 1
+depth = 0.5
+delay = 0.0
+
+[sub_resource type="Resource" id="Wave_s2_2"]
+script = ExtResource("3_wave")
+spawns = Array[ExtResource("4_spawn")]([SubResource("Spawn_s2w2_1")])
+
+[sub_resource type="Resource" id="Segment_2"]
+script = ExtResource("2_segment")
+lock_x = 2900.0
+waves = Array[ExtResource("3_wave")]([SubResource("Wave_s2_1"), SubResource("Wave_s2_2")])
+
+[sub_resource type="Resource" id="Spawn_s3w1_1"]
+script = ExtResource("4_spawn")
+enemy = ExtResource("9_riot")
+side = 1
+depth = 0.5
+delay = 0.0
+
+[sub_resource type="Resource" id="Spawn_s3w1_2"]
+script = ExtResource("4_spawn")
+enemy = ExtResource("7_patrol")
+side = 0
+depth = 0.3
+delay = 0.3
+
+[sub_resource type="Resource" id="Spawn_s3w1_3"]
+script = ExtResource("4_spawn")
+enemy = ExtResource("7_patrol")
+side = 0
+depth = 0.8
+delay = 0.9
+
+[sub_resource type="Resource" id="Wave_s3_1"]
+script = ExtResource("3_wave")
+spawns = Array[ExtResource("4_spawn")]([SubResource("Spawn_s3w1_1"), SubResource("Spawn_s3w1_2"), SubResource("Spawn_s3w1_3")])
+
+[sub_resource type="Resource" id="Spawn_s3w2_1"]
+script = ExtResource("4_spawn")
+enemy = ExtResource("8_bike")
+side = 1
+depth = 0.2
+delay = 0.0
+
+[sub_resource type="Resource" id="Spawn_s3w2_2"]
+script = ExtResource("4_spawn")
+enemy = ExtResource("8_bike")
+side = 0
+depth = 0.4
+delay = 0.3
+
+[sub_resource type="Resource" id="Spawn_s3w2_3"]
+script = ExtResource("4_spawn")
+enemy = ExtResource("8_bike")
+side = 1
+depth = 0.7
+delay = 0.6
+
+[sub_resource type="Resource" id="Spawn_s3w2_4"]
+script = ExtResource("4_spawn")
+enemy = ExtResource("8_bike")
+side = 0
+depth = 0.9
+delay = 0.9
+
+[sub_resource type="Resource" id="Wave_s3_2"]
+script = ExtResource("3_wave")
+spawns = Array[ExtResource("4_spawn")]([SubResource("Spawn_s3w2_1"), SubResource("Spawn_s3w2_2"), SubResource("Spawn_s3w2_3"), SubResource("Spawn_s3w2_4")])
+
+[sub_resource type="Resource" id="Segment_3"]
+script = ExtResource("2_segment")
+lock_x = 4300.0
+waves = Array[ExtResource("3_wave")]([SubResource("Wave_s3_1"), SubResource("Wave_s3_2")])
+
+[sub_resource type="Resource" id="Spawn_s4w1_1"]
+script = ExtResource("4_spawn")
+enemy = ExtResource("7_patrol")
+side = 1
+depth = 0.3
+delay = 0.0
+
+[sub_resource type="Resource" id="Spawn_s4w1_2"]
+script = ExtResource("4_spawn")
+enemy = ExtResource("8_bike")
+side = 0
+depth = 0.5
+delay = 0.3
+
+[sub_resource type="Resource" id="Spawn_s4w1_3"]
+script = ExtResource("4_spawn")
+enemy = ExtResource("7_patrol")
+side = 0
+depth = 0.8
+delay = 0.8
+
+[sub_resource type="Resource" id="Spawn_s4w1_4"]
+script = ExtResource("4_spawn")
+enemy = ExtResource("8_bike")
+side = 1
+depth = 0.6
+delay = 1.2
+
+[sub_resource type="Resource" id="Wave_s4_1"]
+script = ExtResource("3_wave")
+spawns = Array[ExtResource("4_spawn")]([SubResource("Spawn_s4w1_1"), SubResource("Spawn_s4w1_2"), SubResource("Spawn_s4w1_3"), SubResource("Spawn_s4w1_4")])
+
+[sub_resource type="Resource" id="Spawn_s4w2_1"]
+script = ExtResource("4_spawn")
+enemy = ExtResource("9_riot")
+side = 1
+depth = 0.4
+delay = 0.0
+
+[sub_resource type="Resource" id="Spawn_s4w2_2"]
+script = ExtResource("4_spawn")
+enemy = ExtResource("7_patrol")
+side = 0
+depth = 0.6
+delay = 0.4
+
+[sub_resource type="Resource" id="Spawn_s4w2_3"]
+script = ExtResource("4_spawn")
+enemy = ExtResource("8_bike")
+side = 1
+depth = 0.85
+delay = 0.8
+
+[sub_resource type="Resource" id="Spawn_s4w2_4"]
+script = ExtResource("4_spawn")
+enemy = ExtResource("9_riot")
+side = 0
+depth = 0.2
+delay = 1.4
+
+[sub_resource type="Resource" id="Wave_s4_2"]
+script = ExtResource("3_wave")
+spawns = Array[ExtResource("4_spawn")]([SubResource("Spawn_s4w2_1"), SubResource("Spawn_s4w2_2"), SubResource("Spawn_s4w2_3"), SubResource("Spawn_s4w2_4")])
+
+[sub_resource type="Resource" id="Segment_4"]
+script = ExtResource("2_segment")
+lock_x = 5800.0
+waves = Array[ExtResource("3_wave")]([SubResource("Wave_s4_1"), SubResource("Wave_s4_2")])
+
+[sub_resource type="Resource" id="Segment_boss"]
+script = ExtResource("2_segment")
+lock_x = 7360.0
+is_boss_arena = true
+banner_text = "BOSS — TODO"
+
+[sub_resource type="Resource" id="Layer_sky"]
+script = ExtResource("5_layer")
+name = "Sky"
+scroll_scale = 0.05
+texture_path = "res://assets/backgrounds/ocean_drive/sky.png"
+in_front = false
+placeholder_style = 0
+placeholder_color = Color(0.165, 0.078, 0.275, 1)
+
+[sub_resource type="Resource" id="Layer_far"]
+script = ExtResource("5_layer")
+name = "Far"
+scroll_scale = 0.2
+texture_path = "res://assets/backgrounds/ocean_drive/far.png"
+in_front = false
+placeholder_style = 1
+placeholder_color = Color(0.29, 0.14, 0.44, 1)
+
+[sub_resource type="Resource" id="Layer_mid"]
+script = ExtResource("5_layer")
+name = "Mid"
+scroll_scale = 0.5
+texture_path = "res://assets/backgrounds/ocean_drive/mid.png"
+in_front = false
+placeholder_style = 2
+placeholder_color = Color(0.42, 0.2, 0.55, 1)
+
+[sub_resource type="Resource" id="Layer_street"]
+script = ExtResource("5_layer")
+name = "Street"
+scroll_scale = 1.0
+texture_path = "res://assets/backgrounds/ocean_drive/street.png"
+in_front = false
+placeholder_style = 3
+placeholder_color = Color(0.86, 0.66, 0.72, 1)
+
+[sub_resource type="Resource" id="Layer_front"]
+script = ExtResource("5_layer")
+name = "Front"
+scroll_scale = 1.25
+texture_path = "res://assets/backgrounds/ocean_drive/front.png"
+in_front = true
+placeholder_style = 4
+placeholder_color = Color(0.12, 0.06, 0.18, 1)
+
+[sub_resource type="Resource" id="Prop_1"]
+script = ExtResource("6_placement")
+prop = ExtResource("10_newspaper")
+x = 900.0
+depth = 0.2
+
+[sub_resource type="Resource" id="Prop_2"]
+script = ExtResource("6_placement")
+prop = ExtResource("11_trash")
+x = 1750.0
+depth = 0.8
+
+[sub_resource type="Resource" id="Prop_3"]
+script = ExtResource("6_placement")
+prop = ExtResource("10_newspaper")
+x = 2400.0
+depth = 0.3
+
+[sub_resource type="Resource" id="Prop_4"]
+script = ExtResource("6_placement")
+prop = ExtResource("11_trash")
+x = 3300.0
+depth = 0.15
+
+[sub_resource type="Resource" id="Prop_5"]
+script = ExtResource("6_placement")
+prop = ExtResource("10_newspaper")
+x = 3900.0
+depth = 0.85
+
+[sub_resource type="Resource" id="Prop_6"]
+script = ExtResource("6_placement")
+prop = ExtResource("11_trash")
+x = 5000.0
+depth = 0.4
+
+[sub_resource type="Resource" id="Prop_7"]
+script = ExtResource("6_placement")
+prop = ExtResource("10_newspaper")
+x = 6400.0
+depth = 0.7
+
+[sub_resource type="Resource" id="Prop_8"]
+script = ExtResource("6_placement")
+prop = ExtResource("11_trash")
+x = 6900.0
+depth = 0.25
+
+[resource]
+script = ExtResource("1_level")
+level_length = 8000.0
+walk_top = 430.0
+walk_bottom = 680.0
+player_start = Vector2(300, 560)
+segments = Array[ExtResource("2_segment")]([SubResource("Segment_1"), SubResource("Segment_2"), SubResource("Segment_3"), SubResource("Segment_4"), SubResource("Segment_boss")])
+layers = Array[ExtResource("5_layer")]([SubResource("Layer_sky"), SubResource("Layer_far"), SubResource("Layer_mid"), SubResource("Layer_street"), SubResource("Layer_front")])
+props = Array[ExtResource("6_placement")]([SubResource("Prop_1"), SubResource("Prop_2"), SubResource("Prop_3"), SubResource("Prop_4"), SubResource("Prop_5"), SubResource("Prop_6"), SubResource("Prop_7"), SubResource("Prop_8")])

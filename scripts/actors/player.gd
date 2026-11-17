@@ -1,6 +1,6 @@
 class_name Player
 extends Actor
-## Героиня. Автомат поведения IDLE / WALK / JUMP / JUMP_ATTACK / LAND / ATTACK;
+## Героиня. Автомат поведения IDLE / WALK / JUMP / JUMP_ATTACK / LAND / ATTACK / PICKUP;
 ## реакции на урон (HURT, KNOCKDOWN, …) ведёт базовый Actor.
 ##
 ## - Ходьба в 8 направлений; Input.get_vector нормирует диагональ.
@@ -12,11 +12,12 @@ extends Actor
 ## - Буфер: нажатие attack помнится stats.attack_buffer_time; следующий удар
 ##   серии начинается в конце активного окна предыдущего.
 ## - Во время атаки ходить нельзя; разворот — только в момент начала удара.
+## - attack рядом с бонусом (Pickup) на той же глубине — подбор (PICKUP) вместо удара.
 ## - С пользовательским аргументом --autoplay вместо игрока управляет бот.
 ## - Здоровье и смерть пока только в выводе отладки; бессмертие — Debug.god_mode,
 ##   R в режиме отладки воскрешает.
 
-enum State { IDLE, WALK, JUMP, JUMP_ATTACK, LAND, ATTACK }
+enum State { IDLE, WALK, JUMP, JUMP_ATTACK, LAND, ATTACK, PICKUP }
 
 ## Бот без цели: как часто меняет направление, с.
 const BOT_MOVE_PERIOD: float = 1.2
@@ -37,6 +38,10 @@ const BOT_ATTACK_RANGE_X: float = 110.0
 const BOT_DEPTH_TOLERANCE: float = 10.0
 ## Бот: с какой высоты прыжка бьёт ногой, px.
 const BOT_AIR_ATTACK_HEIGHT: float = 30.0
+## Бот: цели дальше этого за краем экрана не замечает, px.
+const BOT_VIEW_MARGIN: float = 40.0
+## Подбор: насколько приседает плейсхолдер (доля роста).
+const PICKUP_SQUASH: float = 0.3
 
 ## Удары серии по порядку.
 @export var combo: Array[AttackData] = []
@@ -105,7 +110,9 @@ func _update_behavior(delta: float) -> void:
 			_combo_idle_time += delta
 			if _combo_idle_time > stats.combo_reset_time:
 				_next_combo_index = 0
-			if not combo.is_empty() and _consume_attack_press():
+			if _attack_buffer > 0.0 and _try_pickup():
+				_attack_buffer = 0.0
+			elif not combo.is_empty() and _consume_attack_press():
 				_start_combo_attack(_next_combo_index)
 			elif _jump_pressed:
 				# Скорость, набранная в этот кадр, остаётся на весь прыжок.
@@ -132,6 +139,10 @@ func _update_behavior(delta: float) -> void:
 				_set_state(State.IDLE)
 		State.ATTACK:
 			_update_ground_attack()
+		State.PICKUP:
+			velocity = Vector2.ZERO
+			if _state_time >= stats.pickup_time:
+				_set_state(State.IDLE)
 	_jump_pressed = false
 
 
@@ -157,6 +168,38 @@ func _start_combo_attack(index: int) -> void:
 		facing = 1 if _input_move.x > 0.0 else -1
 	start_attack(combo[index])
 	_set_state(State.ATTACK)
+
+
+## Подобрать бонус рядом (|dx| <= pickup_range_x, |dy| <= pickup_depth_tolerance).
+## Возвращает true, если подобрала.
+func _try_pickup() -> bool:
+	var pickup: Pickup = _find_pickup_in_reach()
+	if pickup == null:
+		return false
+	velocity = Vector2.ZERO
+	pickup.collect(self)
+	_set_state(State.PICKUP)
+	return true
+
+
+func _find_pickup_in_reach() -> Pickup:
+	for node in get_tree().get_nodes_in_group(Pickup.GROUP):
+		var pickup := node as Pickup
+		if pickup == null or not pickup.is_available():
+			continue
+		var offset: Vector2 = pickup.global_position - global_position
+		if absf(offset.x) <= stats.pickup_range_x and absf(offset.y) <= stats.pickup_depth_tolerance:
+			return pickup
+	return null
+
+
+func _update_visual() -> void:
+	super._update_visual()
+	# Подбор: плейсхолдер приседает (без анимаций).
+	var squash: float = 0.0
+	if state == State.PICKUP and reaction == Reaction.NONE:
+		squash = PICKUP_SQUASH * sin(PI * clampf(_state_time / maxf(stats.pickup_time, 0.001), 0.0, 1.0))
+	visual.scale.y = 1.0 - squash
 
 
 func _consume_attack_press() -> bool:
@@ -225,6 +268,9 @@ func _read_bot_input(delta: float) -> bool:
 	_bot_attack_timer -= delta
 	var target: Actor = _find_bot_target()
 	if target == null:
+		var pickup: Pickup = _find_bot_pickup()
+		if pickup != null:
+			return _bot_go_to_pickup(pickup)
 		var index: int = int(_bot_time / BOT_MOVE_PERIOD) % BOT_MOVES.size()
 		_input_move = BOT_MOVES[index].normalized()
 		return false
@@ -249,15 +295,47 @@ func _read_bot_input(delta: float) -> bool:
 	return false
 
 
-## Ближайший живой боец другой команды.
+## Бот: подойти к бонусу и нажать attack, когда он в досягаемости.
+func _bot_go_to_pickup(pickup: Pickup) -> bool:
+	var offset: Vector2 = pickup.global_position - global_position
+	var in_reach: bool = absf(offset.x) <= stats.pickup_range_x * 0.6 and absf(offset.y) <= BOT_DEPTH_TOLERANCE
+	if in_reach:
+		_input_move = Vector2.ZERO
+		if _bot_attack_timer <= 0.0:
+			_bot_attack_timer = BOT_ATTACK_PERIOD
+			return true
+		return false
+	_input_move = Vector2(clampf(offset.x / 40.0, -1.0, 1.0), clampf(offset.y / 20.0, -1.0, 1.0)).limit_length(1.0)
+	return false
+
+
+## Ближайший бонус на экране.
+func _find_bot_pickup() -> Pickup:
+	var view: Rect2 = StreetCamera.get_visible_world_rect(get_viewport()).grow(-BOT_VIEW_MARGIN)
+	var best: Pickup = null
+	var best_distance: float = INF
+	for node in get_tree().get_nodes_in_group(Pickup.GROUP):
+		var pickup := node as Pickup
+		if pickup == null or not pickup.is_available() or not view.has_point(pickup.global_position):
+			continue
+		var distance: float = global_position.distance_squared_to(pickup.global_position)
+		if distance < best_distance:
+			best_distance = distance
+			best = pickup
+	return best
+
+
+## Ближайший живой боец другой команды (враг или предмет) на экране.
+## Цели за кадром бот не замечает — без них идёт вправо по маршруту.
 func _find_bot_target() -> Actor:
+	var view: Rect2 = StreetCamera.get_visible_world_rect(get_viewport()).grow(BOT_VIEW_MARGIN)
 	var best: Actor = null
 	var best_distance: float = INF
 	for node in get_tree().get_nodes_in_group("actors"):
 		var actor := node as Actor
 		if actor == null or actor == self or actor.team == team:
 			continue
-		if not actor.is_alive() or not actor.visible:
+		if not actor.is_alive() or not actor.visible or not view.has_point(actor.global_position):
 			continue
 		var distance: float = global_position.distance_squared_to(actor.global_position)
 		if distance < best_distance:

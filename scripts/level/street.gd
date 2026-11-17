@@ -41,6 +41,11 @@ const TILE_SIZE: float = 128.0
 		queue_redraw()
 ## Отступ от краёв улицы по x, за который бойцы не заходят.
 @export var side_margin: float = 40.0
+## Рисовать ли свой серый фон. В уровне фон — слои параллакса (BackgroundLayer).
+@export var draw_background: bool = true:
+	set(value):
+		draw_background = value
+		queue_redraw()
 
 
 func _ready() -> void:
@@ -50,6 +55,21 @@ func _ready() -> void:
 	var world: Node = get_node_or_null("World")
 	if world == null:
 		push_error("Street: нет дочернего узла World")
+		return
+	var bounds: Rect2 = get_walk_bounds()
+	for child in world.get_children():
+		if child is Actor:
+			(child as Actor).set_walk_bounds(bounds)
+
+
+## Задать длину улицы и полосу ходьбы на ходу (Level из LevelData)
+## и заново раздать границы бойцам в World.
+func configure(width: float, top: float, bottom: float) -> void:
+	street_width = width
+	walk_top = top
+	walk_bottom = bottom
+	var world: Node = get_node_or_null("World")
+	if world == null:
 		return
 	var bounds: Rect2 = get_walk_bounds()
 	for child in world.get_children():
@@ -74,6 +94,8 @@ func get_walk_bounds() -> Rect2:
 
 
 func _draw() -> void:
+	if not draw_background:
+		return
 	# Асфальт на всю улицу.
 	draw_rect(Rect2(0.0, 0.0, street_width, street_height), ASPHALT_COLOR)
 	# Фасады над тротуаром — чтобы была видна прокрутка.

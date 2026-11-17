@@ -315,6 +315,29 @@ func get_attack_time() -> float:
 	return _attack_time
 
 
+## Восстановить amount здоровья (не выше максимума). Мёртвых не лечит.
+func heal(amount: int) -> void:
+	if not is_alive() or amount <= 0:
+		return
+	health = mini(health + amount, stats.max_health)
+	health_changed.emit(health, stats.max_health)
+
+
+## Убить сразу, в обход щита и неуязвимости (отладка, клавиша N).
+## Боец падает как от смертельного удара и испускает died.
+func kill() -> void:
+	if not is_alive():
+		return
+	stop_attack()
+	_on_hit_taken()
+	_invuln_time = 0.0
+	_hitstop_time = 0.0
+	health = 0
+	health_changed.emit(health, stats.max_health)
+	_start_fall(0.0, Reaction.DEAD)
+	died.emit()
+
+
 ## Вернуть бойца к жизни в точке at с полным здоровьем.
 func revive(at: Vector2) -> void:
 	stop_attack()

@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="PickupData" format=3]
+
+[ext_resource type="Script" path="res://scripts/props/pickup_data.gd" id="1_pickup"]
+
+[resource]
+script = ExtResource("1_pickup")
+kind = 0
+amount = 30
+display_name = "hot_dog"
+placeholder_color = Color(0.95, 0.55, 0.2, 1)
+size = Vector2(48, 16)

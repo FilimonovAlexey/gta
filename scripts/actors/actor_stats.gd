@@ -40,3 +40,11 @@ extends Resource
 @export var attack_buffer_time: float = 0.15
 ## Через сколько секунд без нажатий серия сбрасывается к первому удару, с.
 @export var combo_reset_time: float = 0.4
+
+@export_group("Подбор")
+## Насколько близко по x к бонусу нужно стоять, чтобы подобрать, px.
+@export var pickup_range_x: float = 70.0
+## Допуск по глубине при подборе, px.
+@export var pickup_depth_tolerance: float = 24.0
+## Сколько длится подбор (боец стоит на месте), с.
+@export var pickup_time: float = 0.25
