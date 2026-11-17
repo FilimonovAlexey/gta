@@ -9,11 +9,15 @@ extends Actor
 ## попаданием — серия героини продолжается. На последнем ударе на месте предмета
 ## появляется случайный бонус из data.drops, а сам предмет отлетает (реакция DEAD),
 ## мигает и исчезает.
+## Если у PropData есть картинка (texture_path) — вместо прямоугольника спрайт; при разрушении
+## он меняется на broken_texture_path. Вспышка удара — пересвет спрайта (modulate > 1).
 
 const GROUP: StringName = &"breakables"
 ## Тряска при ударе: длительность, с, и размах, px.
 const SHAKE_TIME: float = 0.18
 const SHAKE_AMPLITUDE: float = 5.0
+## Пересвет спрайта во время вспышки.
+const SPRITE_FLASH := Color(2.5, 2.5, 2.5)
 
 ## Тип предмета. Задаётся до добавления в дерево.
 @export var data: PropData
@@ -24,6 +28,8 @@ const SHAKE_AMPLITUDE: float = 5.0
 var durability: int = 0
 
 var _shake_time: float = 0.0
+## Спрайт предмета (null — плейсхолдер-прямоугольник).
+var _sprite: Sprite2D
 
 
 func _ready() -> void:
@@ -39,6 +45,7 @@ func _ready() -> void:
 	durability = data.hits_to_break
 	health = durability
 	_apply_size()
+	_setup_sprite()
 
 
 func get_state_name() -> String:
@@ -69,10 +76,14 @@ func _update_visual() -> void:
 	super._update_visual()
 	var k: float = _shake_time / SHAKE_TIME
 	visual.position.x = sin(_shake_time * 90.0) * SHAKE_AMPLITUDE * k
+	if _sprite != null:
+		_sprite.self_modulate = SPRITE_FLASH if _flash_time > 0.0 else Color.WHITE
 
 
 func _break_apart(attacker: Actor) -> void:
 	_spawn_drop()
+	if _sprite != null and ResourceLoader.exists(data.broken_texture_path):
+		_set_sprite_texture(load(data.broken_texture_path) as Texture2D)
 	var away: float = 1.0 if global_position.x >= attacker.global_position.x else -1.0
 	facing = -int(away)
 	_start_fall(away * 120.0, Reaction.DEAD)
@@ -104,3 +115,25 @@ func _apply_size() -> void:
 	rect.size = Vector2(size.x, hurt_height)
 	shape_node.shape = rect
 	shape_node.position = Vector2(0.0, -hurt_height * 0.5)
+
+
+## Спрайт вместо прямоугольника, если картинка предмета есть.
+func _setup_sprite() -> void:
+	if data.texture_path.is_empty() or not ResourceLoader.exists(data.texture_path):
+		return
+	_sprite = Sprite2D.new()
+	_sprite.name = "Sprite"
+	_sprite.centered = false
+	visual.add_child(_sprite)
+	_set_sprite_texture(load(data.texture_path) as Texture2D)
+	body.visible = false
+
+
+## Картинка по высоте body_size.y, опора — низ по центру.
+func _set_sprite_texture(texture: Texture2D) -> void:
+	if texture == null:
+		return
+	_sprite.texture = texture
+	var k: float = data.body_size.y / float(texture.get_height())
+	_sprite.scale = Vector2(k, k)
+	_sprite.offset = Vector2(-texture.get_width() * 0.5, -texture.get_height())

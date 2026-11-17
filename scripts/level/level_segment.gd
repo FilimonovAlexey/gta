@@ -10,5 +10,5 @@ extends Resource
 @export var waves: Array[WaveData] = []
 ## Арена босса: замок без волн, который не снимается (пока — заглушка с надписью).
 @export var is_boss_arena: bool = false
-## Надпись по центру экрана при входе в замок (для арены босса).
+## Надпись по центру экрана при входе в замок («FINAL WAVE», «BOSS — TODO»).
 @export var banner_text: String = ""

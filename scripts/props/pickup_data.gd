@@ -14,3 +14,7 @@ enum Kind { HEAL, SCORE }
 @export var placeholder_color: Color = Color(0.95, 0.6, 0.2)
 ## Размер плейсхолдера, px.
 @export var size: Vector2 = Vector2(44.0, 18.0)
+## Картинка бонуса (assets/backgrounds/breakables/…). Пока файла нет — плейсхолдер.
+@export_file("*.png", "*.webp") var texture_path: String = ""
+## Высота картинки в игре, px (ширина — по пропорциям).
+@export var sprite_height: float = 40.0

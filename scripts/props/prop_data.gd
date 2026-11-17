@@ -9,6 +9,10 @@ extends ActorStats
 @export var prop_type: String = "prop"
 ## Цвет плейсхолдера.
 @export var placeholder_color: Color = Color(0.3, 0.6, 0.9)
+## Картинка целого предмета и разбитого (assets/backgrounds/breakables/…). Пока файла нет — плейсхолдер.
+## Картинка подгоняется по высоте под body_size.y, опора — низ по центру.
+@export_file("*.png", "*.webp") var texture_path: String = ""
+@export_file("*.png", "*.webp") var broken_texture_path: String = ""
 ## Размер плейсхолдера (опора — внизу по центру), px.
 @export var body_size: Vector2 = Vector2(60.0, 100.0)
 ## Высота хёртбокса, px. Выше самого предмета — в рост бойца, чтобы по низкому

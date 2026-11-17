@@ -8,14 +8,20 @@ extends Node
 ## когда все враги текущей уже появились и живых на улице осталось
 ## не больше next_wave_threshold. Сегмент пройден — все волны вышли, живых 0.
 ## Арена босса (is_boss_arena): замок с баннером, не снимается.
+## Последний сегмент без босса — арена с усиленной финальной волной: после неё «STAGE CLEAR»,
+## Events.level_cleared и через LEVEL_CLEAR_DELAY — следующий уровень (Game.next_level()).
 ## Debug: N (Debug.kill_all_requested) — убить всех живых врагов на экране и у его краёв.
 
-enum Phase { MOVING, WAVES, BOSS }
+enum Phase { MOVING, WAVES, BOSS, CLEARED }
 
 ## Стрелка «GO →» гаснет, когда камера проехала столько после снятия замка, px.
 const GO_HIDE_DISTANCE: float = 300.0
 ## Клавиша N задевает врагов на столько за краями экрана (те, кто выходит), px.
 const KILL_ALL_MARGIN: float = 200.0
+## Пауза между «STAGE CLEAR» и загрузкой следующего уровня, с.
+const LEVEL_CLEAR_DELAY: float = 2.5
+## Сколько висит название уровня в начале, с.
+const TITLE_TIME: float = 2.0
 
 @export var level_data: LevelData
 @export var camera: BeatCamera
@@ -45,6 +51,9 @@ func _ready() -> void:
 		return
 	camera.stop_reached.connect(_on_stop_reached)
 	_aim_camera()
+	if hud != null and not level_data.display_name.is_empty():
+		# Hud идёт в дереве после директора и ещё не готов — отложить.
+		hud.flash_banner.call_deferred("STAGE %d — %s" % [Game.level_index + 1, level_data.display_name], TITLE_TIME)
 
 
 func _physics_process(delta: float) -> void:
@@ -131,11 +140,30 @@ func _clear_segment() -> void:
 	phase = Phase.MOVING
 	wave_index = -1
 	segment_index += 1
+	if segment_index >= level_data.segments.size():
+		_finish_level()
+		return
 	_release_x = camera.global_position.x
 	_aim_camera()
 	if hud != null:
 		hud.hide_banner()
 		hud.show_go()
+
+
+## Арена зачищена: баннер, сигнал и через паузу — следующий уровень.
+func _finish_level() -> void:
+	phase = Phase.CLEARED
+	print("Уровень пройден: %s" % level_data.level_id)
+	Events.level_cleared.emit()
+	if hud != null:
+		hud.show_banner("STAGE CLEAR")
+	# Через подключение, а не await: если уровень сменят раньше (F2–F6), связь пропадёт вместе с узлом.
+	get_tree().create_timer(LEVEL_CLEAR_DELAY).timeout.connect(_on_level_clear_timeout)
+
+
+func _on_level_clear_timeout() -> void:
+	if not Game.next_level() and hud != null:
+		hud.show_banner("THE END")
 
 
 func _on_kill_all_requested() -> void:

@@ -1,9 +1,10 @@
 class_name BackgroundLayer
 extends Parallax2D
-## Слой параллакса из BackgroundLayerData. Если файл texture_path есть —
-## показывает картинку (масштаб под высоту экрана, повтор по горизонтали),
-## иначе рисует плейсхолдер в палитре закатного Майами по placeholder_style.
-## Кусок плейсхолдера — CHUNK_WIDTH px, Parallax2D повторяет его по repeat_size.
+## Слой параллакса из BackgroundLayerData.
+## Обычный слой: существующие картинки texture_paths идут подряд (каждая масштабируется под высоту
+## экрана), полоса повторяется по горизонтали (repeat_size — целое число полос шириной ≥ экрана).
+## Декор (scatter): картинки ставятся по одной вдоль всего уровня со случайным шагом, без повтора.
+## Нет ни одной картинки — плейсхолдер по placeholder_style (кусок CHUNK_WIDTH, повторяется).
 
 const Style := BackgroundLayerData.PlaceholderStyle
 ## Ширина повторяемого куска плейсхолдера (не меньше ширины экрана), px.
@@ -22,44 +23,81 @@ const TEAL_DARK := Color("#1b7f86")
 const PASTELS: Array[Color] = [Color("#ffb3c7"), Color("#9be7e0"), Color("#ffd7a0"), Color("#c9b6ff")]
 
 var data: BackgroundLayerData
-## Полоса ходьбы (для плейсхолдера улицы).
+## Полоса ходьбы (для плейсхолдеров улицы и пола).
 var walk_top: float = 430.0
 var walk_bottom: float = 680.0
 
 
-## Настроить слой. Вызывать до добавления в дерево или сразу после.
-func setup(layer_data: BackgroundLayerData, top: float, bottom: float) -> void:
+## Настроить слой. level_length — длина уровня (для декора). Вызывать до добавления в дерево.
+func setup(layer_data: BackgroundLayerData, top: float, bottom: float, level_length: float = 8000.0) -> void:
 	data = layer_data
 	walk_top = top
 	walk_bottom = bottom
 	name = data.name
 	scroll_scale = Vector2(data.scroll_scale, 1.0)
 	repeat_times = 2
-	var texture: Texture2D = null
-	if not data.texture_path.is_empty() and ResourceLoader.exists(data.texture_path):
-		texture = load(data.texture_path) as Texture2D
-	if texture != null:
-		_setup_texture(texture)
-	else:
+	var textures: Array[Texture2D] = load_textures(data.texture_paths)
+	if textures.is_empty():
 		repeat_size = Vector2(CHUNK_WIDTH, 0.0)
 		queue_redraw()
+	elif data.scatter:
+		_setup_scatter(textures, level_length)
+	else:
+		_setup_strip(textures)
 
 
-## Картинка: масштаб под высоту экрана, кусок из целого числа повторов шириной не меньше экрана.
-func _setup_texture(texture: Texture2D) -> void:
-	var k: float = SCREEN_HEIGHT / float(texture.get_height())
-	var width: float = texture.get_width() * k
-	var copies: int = maxi(ceili(CHUNK_WIDTH / width), 1)
-	var sprite := Sprite2D.new()
-	sprite.name = "Texture"
-	sprite.texture = texture
-	sprite.centered = false
-	sprite.scale = Vector2(k, k)
-	sprite.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
-	sprite.region_enabled = true
-	sprite.region_rect = Rect2(0.0, 0.0, texture.get_width() * copies, texture.get_height())
-	add_child(sprite)
-	repeat_size = Vector2(width * copies, 0.0)
+## Загрузить существующие картинки из списка путей.
+static func load_textures(paths: Array[String]) -> Array[Texture2D]:
+	var result: Array[Texture2D] = []
+	for path in paths:
+		if not path.is_empty() and ResourceLoader.exists(path):
+			var texture := load(path) as Texture2D
+			if texture != null:
+				result.append(texture)
+	return result
+
+
+## Полоса из картинок подряд, каждая — под высоту экрана; повторяется целым числом полос.
+func _setup_strip(textures: Array[Texture2D]) -> void:
+	var strip_width: float = 0.0
+	for texture in textures:
+		strip_width += texture.get_width() * SCREEN_HEIGHT / float(texture.get_height())
+	var copies: int = maxi(ceili(CHUNK_WIDTH / strip_width), 1)
+	var x: float = 0.0
+	for copy in copies:
+		for texture in textures:
+			var k: float = SCREEN_HEIGHT / float(texture.get_height())
+			var sprite := Sprite2D.new()
+			sprite.name = "Texture%d" % get_child_count()
+			sprite.texture = texture
+			sprite.centered = false
+			sprite.scale = Vector2(k, k)
+			sprite.position = Vector2(x, 0.0)
+			add_child(sprite)
+			x += texture.get_width() * k
+	repeat_size = Vector2(x, 0.0)
+
+
+## Предметы по одному вдоль уровня: видимая часть слоя — от 0 до scroll * (длина − экран) + экран.
+func _setup_scatter(textures: Array[Texture2D], level_length: float) -> void:
+	repeat_size = Vector2.ZERO
+	repeat_times = 0
+	var rng := RandomNumberGenerator.new()
+	rng.seed = data.scatter_seed
+	var end_x: float = data.scroll_scale * maxf(level_length - CHUNK_WIDTH, 0.0) + CHUNK_WIDTH
+	var x: float = rng.randf_range(data.scatter_step_min, data.scatter_step_max) * 0.5
+	var i: int = 0
+	while x < end_x:
+		var texture: Texture2D = textures[i % textures.size()] if i < textures.size() else textures[rng.randi() % textures.size()]
+		var sprite := Sprite2D.new()
+		sprite.name = "Prop%d" % i
+		sprite.texture = texture
+		sprite.centered = false
+		sprite.offset = Vector2(-texture.get_width() * 0.5, -texture.get_height())
+		sprite.position = Vector2(x, data.scatter_baseline)
+		add_child(sprite)
+		x += rng.randf_range(data.scatter_step_min, data.scatter_step_max)
+		i += 1
 
 
 func _draw() -> void:
@@ -76,6 +114,10 @@ func _draw() -> void:
 			_draw_street()
 		Style.FRONT:
 			_draw_front()
+		Style.SOLID:
+			draw_rect(Rect2(0.0, 0.0, CHUNK_WIDTH, SCREEN_HEIGHT), data.placeholder_color)
+		Style.PLAIN:
+			_draw_plain()
 
 
 ## Небо: полосы от фиолетового к закату и диск солнца. Непрозрачный.
@@ -167,6 +209,20 @@ func _draw_front() -> void:
 	draw_rect(Rect2(lamp_x - 7.0, 150.0, 14.0, SCREEN_HEIGHT - 150.0), color)
 	draw_rect(Rect2(lamp_x - 7.0, 150.0, 70.0, 10.0), color)
 	draw_circle(Vector2(lamp_x + 60.0, 170.0), 14.0, SUN)
+
+
+## Простая стена и пол (уровни без арта): стена над полосой ходьбы, пол со швами до низа экрана.
+func _draw_plain() -> void:
+	var color: Color = data.placeholder_color
+	var wall_top: float = walk_top - 260.0
+	draw_rect(Rect2(0.0, wall_top, CHUNK_WIDTH, walk_top - wall_top), color.darkened(0.35))
+	for k in 5:
+		draw_rect(Rect2(k * 256.0 + 40.0, wall_top + 40.0, 150.0, 120.0), color.darkened(0.5))
+	draw_rect(Rect2(0.0, walk_top - 12.0, CHUNK_WIDTH, 12.0), color.lightened(0.2))
+	draw_rect(Rect2(0.0, walk_top, CHUNK_WIDTH, SCREEN_HEIGHT - walk_top), color)
+	var seam: Color = color.darkened(0.12)
+	for k in 5:
+		draw_line(Vector2(k * 256.0, walk_top), Vector2(k * 256.0 - 80.0, SCREEN_HEIGHT), seam, 2.0)
 
 
 func _draw_palm(foot: Vector2, height: float, color: Color) -> void:

@@ -1,7 +1,7 @@
 class_name LevelHud
 extends CanvasLayer
 ## Надписи уровня поверх игры: мигающая стрелка «GO →» справа (замок снят —
-## идти дальше) и баннер по центру (например, «BOSS — TODO» в арене босса).
+## идти дальше) и баннер по центру (название уровня, «FINAL WAVE», «STAGE CLEAR», «BOSS — TODO»).
 
 ## Полупериод мигания стрелки, с.
 const GO_BLINK_PERIOD: float = 0.3
@@ -12,6 +12,8 @@ const OUTLINE_COLOR := Color(0.12, 0.04, 0.2)
 var _go_label: Label
 var _banner_label: Label
 var _go_time: float = 0.0
+## Сколько ещё держать баннер, показанный flash_banner (0 — не по таймеру).
+var _banner_time: float = 0.0
 
 
 func _ready() -> void:
@@ -34,6 +36,10 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	if _banner_time > 0.0:
+		_banner_time -= delta
+		if _banner_time <= 0.0:
+			hide_banner()
 	if _go_label.visible or _go_time > 0.0:
 		_go_time += delta
 		_go_label.modulate.a = 1.0 if fmod(_go_time, GO_BLINK_PERIOD * 2.0) < GO_BLINK_PERIOD else 0.15
@@ -54,11 +60,19 @@ func is_go_visible() -> bool:
 
 
 func show_banner(text: String) -> void:
+	_banner_time = 0.0
 	_banner_label.text = text
 	_banner_label.visible = true
 
 
+## Баннер на time секунд (название уровня в начале).
+func flash_banner(text: String, time: float) -> void:
+	show_banner(text)
+	_banner_time = time
+
+
 func hide_banner() -> void:
+	_banner_time = 0.0
 	_banner_label.visible = false
 
 

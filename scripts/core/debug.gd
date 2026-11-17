@@ -7,7 +7,7 @@ extends Node
 ## В режиме отладки: R (debug_revive) воскрешает героиню, G (debug_god_mode) —
 ## бессмертие героини, 1/2/3 (debug_spawn_1..3) — спавн врага соответствующего
 ## типа (список типов — у EnemySpawner уровня), N (debug_kill_all) — убить всех
-## врагов на экране (слушает LevelDirector).
+## врагов на экране (слушает LevelDirector), F2–F6 (debug_level_1..5) — открыть уровень 1–5 (слушает Game).
 ## Пользовательские аргументы: --debug-draw (отрисовка сразу), --god-mode (бессмертие сразу).
 ##
 ## class_name не задаётся намеренно: он конфликтовал бы с именем autoload.
@@ -22,9 +22,13 @@ signal god_mode_changed(is_on: bool)
 signal spawn_requested(index: int)
 ## Запрошено убийство всех врагов на экране (N).
 signal kill_all_requested
+## Запрошен уровень index (0 — клавиша F2).
+signal level_requested(index: int)
 
 ## Действия спавна по порядку индексов.
 const SPAWN_ACTIONS: Array[StringName] = [&"debug_spawn_1", &"debug_spawn_2", &"debug_spawn_3"]
+## Действия выбора уровня по порядку индексов.
+const LEVEL_ACTIONS: Array[StringName] = [&"debug_level_1", &"debug_level_2", &"debug_level_3", &"debug_level_4", &"debug_level_5"]
 
 ## Включена ли отладочная отрисовка.
 var enabled: bool = false
@@ -60,5 +64,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		for i in SPAWN_ACTIONS.size():
 			if event.is_action_pressed(SPAWN_ACTIONS[i]):
 				spawn_requested.emit(i)
+				get_viewport().set_input_as_handled()
+				return
+		for i in LEVEL_ACTIONS.size():
+			if event.is_action_pressed(LEVEL_ACTIONS[i]):
+				level_requested.emit(i)
 				get_viewport().set_input_as_handled()
 				return

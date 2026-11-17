@@ -9,3 +9,5 @@ amount = 500
 display_name = "cash"
 placeholder_color = Color(0.35, 0.85, 0.4, 1)
 size = Vector2(40, 22)
+texture_path = "res://assets/backgrounds/breakables/cash.png"
+sprite_height = 30.0

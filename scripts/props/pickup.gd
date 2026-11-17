@@ -5,7 +5,8 @@ extends Node2D
 ## на той же глубине (см. Player, поля «Подбор» в ActorStats).
 ##
 ## collect(): HEAL — лечит подобравшего, SCORE — очки через Events.pickup_collected
-## (их начисляет Game). Пока нет арта — цветной прямоугольник, слегка покачивается.
+## (их начисляет Game). Картинка — PickupData.texture_path; пока её нет — цветной прямоугольник.
+## Бонус слегка покачивается.
 
 const GROUP: StringName = &"pickups"
 ## Покачивание над землёй: размах, px, и частота, рад/с.
@@ -22,6 +23,8 @@ const OUTLINE_COLOR := Color(0.1, 0.05, 0.1, 0.9)
 
 var _time: float = 0.0
 var _collected: bool = false
+## Картинка бонуса (null — плейсхолдер).
+var _texture: Texture2D
 
 
 func _ready() -> void:
@@ -29,6 +32,8 @@ func _ready() -> void:
 	if data == null:
 		push_error("%s: не задан data (PickupData)" % name)
 		data = PickupData.new()
+	if not data.texture_path.is_empty() and ResourceLoader.exists(data.texture_path):
+		_texture = load(data.texture_path) as Texture2D
 
 
 func _process(delta: float) -> void:
@@ -64,6 +69,11 @@ func _draw() -> void:
 	if _time < POP_TIME:
 		var t: float = _time / POP_TIME
 		lift += POP_HEIGHT * 4.0 * t * (1.0 - t)
+	if _texture != null:
+		var k: float = data.sprite_height / float(_texture.get_height())
+		var tex_size := Vector2(_texture.get_width(), _texture.get_height()) * k
+		draw_texture_rect(_texture, Rect2(Vector2(-tex_size.x * 0.5, -tex_size.y - lift), tex_size), false)
+		return
 	var rect := Rect2(Vector2(-size.x * 0.5, -size.y - lift), size)
 	draw_rect(rect.grow(2.0), OUTLINE_COLOR)
 	draw_rect(rect, data.placeholder_color)

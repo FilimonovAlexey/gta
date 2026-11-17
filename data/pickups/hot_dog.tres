@@ -9,3 +9,5 @@ amount = 30
 display_name = "hot_dog"
 placeholder_color = Color(0.95, 0.55, 0.2, 1)
 size = Vector2(48, 16)
+texture_path = "res://assets/backgrounds/breakables/hotdog.png"
+sprite_height = 34.0

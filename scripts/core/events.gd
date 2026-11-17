@@ -31,3 +31,6 @@ signal segment_cleared(index: int)
 ## Камера встала в арене босса.
 @warning_ignore("unused_signal")
 signal boss_arena_reached
+## Последний сегмент уровня пройден (арена зачищена) — дальше следующий уровень.
+@warning_ignore("unused_signal")
+signal level_cleared

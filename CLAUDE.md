@@ -2,15 +2,27 @@
 
 Godot 4.7.2, GDScript, рендерер Compatibility (нужен веб-экспорт). Окно 1280x720,
 stretch `canvas_items`, aspect `keep`, фильтр текстур Linear. Главная сцена —
-`res://scenes/level/level.tscn` (уровень «Ошен-драйв»); `scenes/level/test_street.tscn` — отладочная
-улица без замков (запуск: `godot --path . res://scenes/level/test_street.tscn`);
+`res://scenes/level/level.tscn` (строит текущий уровень из `Game`, с начала — тюремный корпус);
+`scenes/level/test_street.tscn` — отладочная улица без замков
+(запуск: `godot --path . res://scenes/level/test_street.tscn`);
+`scenes/level/level_preview.tscn` — снимки фонов всех уровней (см. «Проверка»);
 каркас `scenes/main/main.tscn` ждёт своего этапа. Бинарник: `/Applications/Godot.app/Contents/MacOS/Godot`.
 
 ## Игра
-2D-битемап с прокруткой в духе классики жанра 90-х. Солнечный Майами в комиксном стиле.
-Героиня идёт по улице, дерётся с волнами полицейских (патрульные, велопатруль, ОМОН)
-и в конце уровня побеждает босса — командира спецназа. Бойцы ходят вдоль улицы и вглубь неё.
-Все персонажи, названия и символика — оригинальные, ничего из чужих игр.
+2D-битемап с прокруткой в духе классики жанра 90-х, Майами в комиксном стиле.
+Сюжет: героиня в оранжевой робе бежит из тюрьмы Майами. По пути дерётся с волнами полицейских
+(патрульные, велопатруль, ОМОН), в финале — с боссом, командиром спецназа.
+Бойцы ходят вдоль улицы и вглубь неё. Все персонажи, названия и символика — оригинальные,
+ничего из чужих игр.
+
+Пять уровней по порядку (`Game.LEVELS`, файлы `data/levels/<код>.tres`):
+1. `cellblock` — тюремный корпус, ночь (CELLBLOCK);
+2. `yard` — двор и периметр, прожекторы (THE YARD);
+3. `everglades` — дорога через болота (EVERGLADES);
+4. `ocean_drive` — неоновая улица (OCEAN DRIVE);
+5. `port` — порт на рассвете, финальный босс (THE PORT).
+На уровнях 1–4 в конце арена с усиленной финальной волной копов («FINAL WAVE»), после неё
+«STAGE CLEAR» и следующий уровень (очки и жизни сохраняются). Босс — только в порту (пока заглушка).
 
 ## Координаты и глубина
 - Позиция бойца (`Node2D.position`) — точка на земле под ногами: `x` — вдоль улицы, `y` — глубина.
@@ -35,12 +47,14 @@ stretch `canvas_items`, aspect `keep`, фильтр текстур Linear. Гл�
 - Системы общаются через сигналы и шину `Events`.
 - Autoload'ы (`scripts/core/`): `Events` — шина сигналов (`player_died`, `enemy_defeated(score)`,
   `pickup_collected(data, collector)`, `segment_started(i)`, `wave_started(seg, wave)`,
-  `segment_cleared(i)`, `boss_arena_reached`),
-  `Game` — состояние игры (очки, жизни; копятся очки за врагов и бонусы-деньги),
+  `segment_cleared(i)`, `boss_arena_reached`, `level_cleared`),
+  `Game` — состояние игры (очки, жизни, текущий уровень `level_index`; копятся очки за врагов
+  и бонусы-деньги; `get_current_level_data()`, `load_level(i)`, `next_level()`; аргумент `--level=N`),
   `Debug` — флаг отладочной отрисовки (F1, действие `debug_toggle`) и отладочные клавиши
   (работают только при включённом F1): R — `revive_requested` (героиня воскресает),
   G — `god_mode` (бессмертие героини), 1/2/3 — `spawn_requested(index)`,
-  N — `kill_all_requested` (убить всех врагов на экране; слушает `LevelDirector`).
+  N — `kill_all_requested` (убить всех врагов на экране; слушает `LevelDirector`),
+  F2–F6 — `level_requested(index)` (открыть уровень 1–5; слушает `Game`).
 
 ### Папки
 - `scenes/{main,actors,player,enemies,boss,level,props,ui,fx}` — сцены (`props` — предметы и бонусы).
@@ -48,9 +62,12 @@ stretch `canvas_items`, aspect `keep`, фильтр текстур Linear. Гл�
   уровня, улица, камеры, параллакс, спавнер, директор волн, отладочный оверлей; `props` — предметы и бонусы;
   `ui` — полоска здоровья, HUD уровня).
 - `data/` — `.tres`: `player_stats`, `attacks/`, `enemies/`, `props/`, `pickups/`, `levels/`.
-- `assets/{sprites,backgrounds,ui,fonts,audio/sfx,audio/music}` — то, что импортируется в игру.
-- `art_source/` — исходные сгенерированные листы; есть `.gdignore`, в игру не импортируются.
-- `tools/` — Python-скрипты (нарезка листов и т. п.).
+- `assets/{sprites,backgrounds,ui,fonts,audio/sfx,audio/music}` — то, что импортируется в игру
+  (`assets/backgrounds/` — см. «Ассеты»).
+- `art_source/` — исходные сгенерированные картинки; есть `.gdignore`, в игру не импортируются (см. «Ассеты»).
+- `tools/` — Python-скрипты: `organize_inbox.py` (раскладка `_inbox`), `process_backgrounds.py` (фоны → assets),
+  `make_levels.py` (генератор `data/levels/*.tres`), `floor_lines.json` (линии пола, пишет process_backgrounds).
+  `tools/preview/` — временные превью, в git не попадают.
 - `builds/` — экспорт, в git не попадает.
 
 ### Input Map
@@ -66,6 +83,7 @@ stretch `canvas_items`, aspect `keep`, фильтр текстур Linear. Гл�
 | debug_god_mode | G (только при включённом Debug) | — |
 | debug_spawn_1/2/3 | 1 / 2 / 3 (только при включённом Debug) | — |
 | debug_kill_all | N (только при включённом Debug) | — |
+| debug_level_1..5 | F2–F6 (только при включённом Debug) | — |
 
 ## Плейсхолдеры
 Пока нет арта, бойцы — цветные прямоугольники ростом ~180 px:
@@ -188,17 +206,20 @@ stretch `canvas_items`, aspect `keep`, фильтр текстур Linear. Гл�
   иначе остаются null.
 
 ## Уровень (этап 5)
-- `LevelData` (`scripts/level/level_data.gd`, файл `data/levels/ocean_drive.tres`): `level_length`,
-  `walk_top`/`walk_bottom`, `player_start`, `segments`, `layers` (параллакс), `props` (предметы).
+- `LevelData` (`scripts/level/level_data.gd`, файлы `data/levels/<код>.tres`): `level_id`, `display_name`,
+  `level_length`, `walk_top`/`walk_bottom`, `player_start`, `segments`, `layers` (параллакс),
+  `arena_texture_path` (фон арены), `props` (предметы).
   Вложенные ресурсы (по классу на файл в `scripts/level/`): `LevelSegment` (`lock_x` — x **центра камеры**
   в замке, экран = `lock_x ± 640`; `waves`; `is_boss_arena` + `banner_text`), `WaveData` (`spawns`),
   `WaveSpawn` (`enemy`, `side` LEFT/RIGHT, `depth` 0..1 — 0 дальний край полосы, `delay` от начала волны),
   `PropPlacement` (`prop`, `x`, `depth`), `BackgroundLayerData` (см. «Фоны»).
-  Волны/спавны — sub_resource'ы внутри `ocean_drive.tres` (генерировать удобно скриптом, порядок
-  `[ext_resource]` → `[sub_resource]` → `[resource]`).
-- `Level` (`scripts/level/level.gd`, `scenes/level/level.tscn`): применяет LevelData — `Street.configure()`
-  (длина и полоса; `Street.draw_background = false`, фон рисуют слои), строит слои в `Background`
-  (за бойцами) и `Foreground` (перед ними: идёт в дереве после `Street`), ставит героиню, расставляет предметы.
+  Волны/спавны — sub_resource'ы внутри `.tres`. Все пять файлов генерирует `tools/make_levels.py`
+  (таблицы волн, предметов, слоёв и плейсхолдеров — там; править их и перезапускать скрипт).
+- `Level` (`scripts/level/level.gd`, `scenes/level/level.tscn`): в `_enter_tree` берёт LevelData у `Game`
+  (экспортное `level_data` — запасное), отдаёт его `LevelDirector` и делает `Street.configure()`
+  (длина и полоса; `Street.draw_background = false`, фон рисуют слои). `Level.build_backdrop(data, back, front)`
+  (статическая, ей же пользуется предпросмотр) строит слои в `Background` (за бойцами) и `Foreground`
+  (перед ними: идёт в дереве после `Street`) и фон арены; дальше — героиня и предметы.
 - `BeatCamera` (`scripts/level/beat_camera.gd`): центр = героиня + `look_ahead`, едет только вправо;
   не дальше `stop_x`; доехав — `locked`, сигнал `stop_reached`; `release(next_stop_x)` снимает замок.
   Каждый кадр выдаёт героине `set_walk_bounds` = полоса улицы ∩ экран (отступ `screen_margin`) —
@@ -206,23 +227,29 @@ stretch `canvas_items`, aspect `keep`, фильтр текстур Linear. Гл�
 - `LevelDirector` (`scripts/level/level_director.gd`): сегменты по очереди. Замок → волна 1 сразу;
   следующая волна — когда все спавны текущей вышли и живых врагов ≤ `next_wave_threshold` (1);
   сегмент пройден — все волны вышли и живых 0 → `release`, «GO →» (гаснет через 300 px езды или в новом замке).
-  Арена босса — замок с баннером «BOSS — TODO», не снимается.
+  Последний сегмент без босса — арена с баннером «FINAL WAVE»; зачищена → «STAGE CLEAR»,
+  `Events.level_cleared`, через 2.5 с `Game.next_level()`. Арена босса (только порт) — замок
+  с баннером «BOSS — TODO», не снимается. В начале уровня на 2 с — баннер «STAGE N — <название>».
 - `EnemySpawner.spawn(data, side, depth)`: side 1/-1/0 (0 — случайно), depth 0..1 (< 0 — случайно);
   `autoplay_spawning = false` в уровне (волнами управляет директор).
 - Враги выбирают сторону ожидания так, чтобы место было на экране (`Enemy._is_wait_x_ok`).
-- `LevelHud` (`scripts/ui/level_hud.gd`, CanvasLayer): `show_go()/hide_go()`, `show_banner(text)/hide_banner()`.
+- `LevelHud` (`scripts/ui/level_hud.gd`, CanvasLayer): `show_go()/hide_go()`, `show_banner(text)/hide_banner()`,
+  `flash_banner(text, time)`.
 - `Actor.heal(amount)`, `Actor.kill()` (смерть в обход щита — для клавиши N).
-- Раскладка «Ошен-драйв» (длина 8000): замки 1500 / 2900 / 4300 / 5800, арена босса 7360;
-  8 предметов. Чтобы поменять волны — править `ocean_drive.tres` (или скрипт-генератор).
+- Раскладка всех уровней пока одна (длина 8000): замки 1500 / 2900 / 4300 / 5800, арена 7360
+  (последний замок = длина − 640); 8 предметов (ящик и бак, на Ошен-драйв — газетный автомат и бак).
 
 ### Предметы и бонусы
-- `PropData` (`scripts/props/prop_data.gd`, расширяет `ActorStats`; `data/props/newspaper_box.tres`,
-  `trash_bin.tres`): `prop_type`, `placeholder_color`, `body_size`, `hurtbox_height` (хёртбокс в рост бойца,
-  чтобы по низкому предмету попадали джеб и кросс), `hits_to_break` (2), `drops` (одно случайное).
+- `PropData` (`scripts/props/prop_data.gd`, расширяет `ActorStats`; `data/props/crate.tres`, `trash_bin.tres`,
+  `newspaper_box.tres`): `prop_type`, `placeholder_color`, `texture_path` / `broken_texture_path` (картинка
+  целого и разбитого; подгоняется по высоте под `body_size.y`, опора — низ по центру; нет файла — прямоугольник),
+  `body_size`, `hurtbox_height` (хёртбокс в рост бойца, чтобы по низкому предмету попадали джеб и кросс),
+  `hits_to_break` (2), `drops` (одно случайное).
 - `Breakable` (`scripts/props/breakable.gd`, `scenes/props/breakable.tscn`, наследует `actor.tscn`): команда
   ENEMY (бьёт только героиня), группа `breakables`; `take_hit` — минус единица прочности, вспышка, тряска,
   засчитывается попаданием; на последнем — бонус на месте предмета, предмет отлетает (DEAD) и исчезает.
-- `PickupData` (`scripts/props/pickup_data.gd`; `data/pickups/hot_dog.tres` — HEAL +30, `cash.tres` — SCORE +500).
+- `PickupData` (`scripts/props/pickup_data.gd`; `data/pickups/hot_dog.tres` — HEAL +30, `cash.tres` — SCORE +500):
+  `texture_path`, `sprite_height` — картинка бонуса (нет файла — прямоугольник).
 - `Pickup` (`scripts/props/pickup.gd`, `scenes/props/pickup.tscn`): Node2D в World (y-сортировка), группа
   `pickups`; `collect(actor)` — лечит или шлёт `Events.pickup_collected` (очки начисляет `Game`).
 - Подбор: `Player` в IDLE/WALK по attack сначала ищет бонус (`|dx| ≤ pickup_range_x`,
@@ -232,34 +259,63 @@ stretch `canvas_items`, aspect `keep`, фильтр текстур Linear. Гл�
   без целей бредёт вправо — так проходит уровень до арены босса (~16 000 физкадров).
 
 ## Фоны
-Слои параллакса задаются в `LevelData.layers` (`BackgroundLayerData`: `name`, `scroll_scale`, `texture_path`,
-`in_front`, `placeholder_style`, `placeholder_color`) и строятся `BackgroundLayer` (`scripts/level/background_layer.gd`,
-наследует `Parallax2D`). Пока файла `texture_path` нет — рисуется плейсхолдер в палитре закатного Майами.
-Как только картинка появится в `assets/backgrounds/ocean_drive/` (и импортируется редактором), слой берёт её:
-масштабирует под высоту 720 и повторяет по горизонтали (`repeat_size` = целое число копий шириной ≥ 1280).
+Слои параллакса задаются в `LevelData.layers` (`BackgroundLayerData`: `name`, `scroll_scale`, `texture_paths`,
+`in_front`, `placeholder_style`, `placeholder_color`; группа «Декор»: `scatter`, `scatter_step_min/max`,
+`scatter_baseline`, `scatter_seed`) и строятся `BackgroundLayer` (`scripts/level/background_layer.gd`,
+наследует `Parallax2D`). Из `texture_paths` берутся только существующие файлы; нет ни одного — плейсхолдер
+(`NONE` — ничего, `SOLID` — заливка, `PLAIN` — простая стена и пол, `SKY/FAR/MID/STREET/FRONT` — закатный Майами).
 
-| Слой | Файл | scroll | Что на нём | Прозрачное |
-|---|---|---|---|---|
-| Sky | `sky.png` | 0.05 | небо, закат, солнце | ничего — слой непрозрачный |
-| Far | `far.png` | 0.2 | океан и дальние небоскрёбы (горизонт ~y 330, океан до y 430) | всё выше силуэтов (небо) |
-| Mid | `mid.png` | 0.5 | пальмы и набережная с парапетом (низ — y 430) | всё выше набережной и вокруг пальм; ниже y 430 не видно |
-| Street | `street.png` | 1.0 | фасады отелей, тротуар (полоса ходьбы y 430–680), бордюр, дорога до y 720 | небо над отелями и просветы между ними; от y 430 вниз — непрозрачный |
-| Front | `front.png` | 1.25 | стволы пальм и фонари перед бойцами | всё, кроме стволов и фонарей (большие пустые промежутки — бойцов должно быть видно) |
+| Слой | Файлы в `assets/backgrounds/<уровень>/` | scroll | Как строится |
+|---|---|---|---|
+| Sky | `sky.png` | 0.05 | непрозрачная панорама неба / задней стены, повтор |
+| Far | `far.png` | 0.2 | дальний план с прозрачностью, повтор |
+| Mid | `mid.png` | 0.5 | средний план с прозрачностью, повтор |
+| Main | `main_a.png`, `main_b.png`, `main_c.png` | 1.0 | идут подряд a → b → c, полоса повторяется по длине уровня |
+| Props | `props_01.png` … `props_06.png` | 1.25, перед бойцами | декор по одному с шагом 500–900 px, низ на y 720 |
+| Arena | `arena.png` | 1.0 | кадр 1280x720 на месте последнего замка (lock_x ± 640), поверх Main |
 
-- Все картинки — **720 px в высоту** (другая высота масштабируется под 720), ширина любая, но **бесшовная
-  по горизонтали**; удобно 1280–2560. Верх картинки = верх экрана (y 0), камера по y не двигается.
-- Формат PNG (или WebP) с альфой, кроме `sky`. Фильтр — Linear (настройки проекта).
-- Слой Street едет вместе с миром: линия `walk_top` (y 430) — дальний край тротуара, `walk_bottom` (y 680) — бордюр.
-- Новый уровень — свой подкаталог `assets/backgrounds/<уровень>/` и свои пути в его `LevelData`.
+- Все слои — **720 px в высоту** (их готовит `tools/process_backgrounds.py`), бесшовные по горизонтали.
+  Верх картинки = верх экрана (y 0), камера по y не двигается.
+- `walk_top` уровня = линия пола на `main_a` + 15 px (линию находит process_backgrounds, пишет в
+  `tools/floor_lines.json`, берёт make_levels); `walk_bottom` = 695. Для уровней без арта — 430 / 680.
+  cellblock: пол с y 419 → полоса 434–695.
+- Разрушаемые предметы и бонусы — `assets/backgrounds/breakables/{trash_can,trash_can_broken,crate,crate_broken,hotdog,cash}.png`;
+  титульник — `assets/backgrounds/title.png` (титульного экрана пока нет).
+
+## Ассеты (этап 6.0)
+- `art_source/` — оригиналы из нейросети (в игру не импортируются, не изменять):
+  - `<персонаж>/` — `heroine`, `patrol`, `bike`, `riot`, `boss`: `anchor.png` (одна фигура на зелёном; у героини
+    `anchor.jpg`) и листы 3x2 на зелёном, имя = код листа. Героиня: H1 стойка, H2 ходьба, H3 джеб + кросс,
+    H4 апперкот + удар ногой, H5 прыжок + удар в прыжке, H6 урон + падение, H7 подъём + победа.
+    Копы и босс: E1 ходьба, E2 стойка + атака, E3 урон + падение; босс ещё B1 рывок + удар по земле, B2 ярость + поражение.
+  - `backgrounds/<уровень>/` — `sky`, `far`, `mid`, `main_a/b/c`, `props` (лист 3x2 декора), `arena`;
+    `backgrounds/title.png`, `backgrounds/breakables.png` (лист: бак, бак разбитый, ящик, ящик разбитый, хот-дог, деньги).
+    Варианты main по уровням: cellblock — камеры / будка охраны и шкафчики / столовая; yard — баскетбольное кольцо /
+    мастерская с воротами / КПП со шлагбаумом; everglades — дорога с отбойником / прокат глиссеров / блокпост;
+    ocean_drive — отели и кафе / ночной клуб / угол с кабриолетом; port — контейнеры и погрузчик / склад / край пирса.
+    Ключ у слоёв без альфы — пурпурный #FF00FF (у ocean_drive — зелёный #00FF00).
+  - `_inbox/` — сюда кладутся новые картинки со случайными именами; `_alternates/` — запасные варианты (`_v2`, `_v3`);
+    `_unsorted/` — неопознанное; `manifest.csv` — журнал переименований (исходное имя → новый путь, размер, заметки).
+- Как добавить картинку: положить в `art_source/_inbox/` → опознать (превью 512 px в `tools/preview/inbox/`,
+  проверки: 6 фигур, все смотрят вправо, один персонаж, однотонный фон, без текста; у фонов — без людей и текста,
+  пустой пол, прозрачность или чистый ключ) → вписать в `PLAN` в `tools/organize_inbox.py` и запустить его
+  (только перемещает; занятое имя уходит в `_alternates`; дописывает `manifest.csv`) →
+  для фонов `python3 tools/process_backgrounds.py [уровень]` → `godot --headless --import --path .`.
+  Если поменялась линия пола main_a — `python3 tools/make_levels.py`. `.tres` править не нужно: пути уже прописаны.
+- Спрайты персонажей пока не нарезаны (этап 6.1) — бойцы остаются прямоугольниками.
 
 ## Проверка
 Аргументы для тестов: `-- --autoplay` (бот подходит к ближайшей цели на экране, бьёт серией
 и ногой в прыжке, подбирает бонусы; в test_street спавнер сам выпускает врагов, в уровне — волны директора),
-`-- --debug-draw` (отладочная отрисовка сразу включена), `-- --god-mode` (бессмертие сразу).
+`-- --debug-draw` (отладочная отрисовка сразу включена), `-- --god-mode` (бессмертие сразу),
+`-- --level=N` (начать с уровня N = 1..5).
 Headless-итерации не равны физическим кадрам: для проверки поведения во времени добавлять `--fixed-fps 60`
 (`--headless --path . --fixed-fps 60 --quit-after 3600 -- --autoplay`).
-Полный проход уровня ботом (в логе «Сегмент N пройден» и «Арена босса»):
-`--headless --path . --fixed-fps 60 --quit-after 20000 -- --autoplay --god-mode`.
+Полный проход уровня ботом (в логе «Сегмент N пройден», «Уровень пройден» и «Загрузка уровня 2»;
+в порту — «Арена босса»):
+`--headless --path . --fixed-fps 60 --quit-after 24000 -- --autoplay --god-mode [--level=N]`.
+Снимки фонов всех уровней (только с окном; жёлтые линии — полоса ходьбы, розовые — боец 180 px):
+`godot --path . res://scenes/level/level_preview.tscn -- --shots=<папка> [--levels=1,3]`.
 Movie Maker на этой машине пишет кадры, только пока окно реально рисуется (при заснувшем
 или перекрытом экране кадры «замерзают») — для картинок хватает коротких записей.
 
@@ -285,3 +341,7 @@ godot --headless --path . --quit-after 300
   (только вправо, замки, «GO →»), LevelDirector с волнами, параллакс из 5 слоёв на Parallax2D
   (плейсхолдеры, готовность к картинкам), разрушаемые предметы с бонусами (хот-дог, деньги), подбор,
   арена босса-заглушка, level.tscn — главная сцена, отладка: N — убить всех врагов на экране.
+- [x] Этап 6.0 — разбор ассетов: сюжет и пять уровней, раскладка `_inbox` по `art_source` с `manifest.csv`,
+  `process_backgrounds.py` (ключ, масштаб, швы, выравнивание пола, нарезка листов), `make_levels.py`,
+  фоны тюремного корпуса в игре, цепочка уровней с финальной волной и переходом, F2–F6,
+  картинки для предметов и бонусов (ждут арта), сцена снимков фонов.
