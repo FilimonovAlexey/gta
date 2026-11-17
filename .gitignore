@@ -1,0 +1,13 @@
+# Godot 4
+.godot/
+/android/
+*.translation
+export_credentials.cfg
+
+# Сборки
+builds/
+
+# Системное
+.DS_Store
+__pycache__/
+*.pyc
