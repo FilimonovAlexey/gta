@@ -13,6 +13,8 @@ extends Actor
 ##   серии начинается в конце активного окна предыдущего.
 ## - Во время атаки ходить нельзя; разворот — только в момент начала удара.
 ## - С пользовательским аргументом --autoplay вместо игрока управляет бот.
+## - Здоровье и смерть пока только в выводе отладки; бессмертие — Debug.god_mode,
+##   R в режиме отладки воскрешает.
 
 enum State { IDLE, WALK, JUMP, JUMP_ATTACK, LAND, ATTACK }
 
@@ -63,6 +65,15 @@ var _autoplay: bool = OS.get_cmdline_user_args().has("--autoplay")
 var _bot_time: float = 0.0
 var _bot_jump_timer: float = BOT_JUMP_PERIOD
 var _bot_attack_timer: float = 0.0
+
+
+func _ready() -> void:
+	super._ready()
+	immortal = Debug.god_mode
+	Debug.god_mode_changed.connect(_on_god_mode_changed)
+	Debug.revive_requested.connect(_on_revive_requested)
+	health_changed.connect(_on_health_changed)
+	died.connect(_on_died)
 
 
 func get_state_name() -> String:
@@ -172,6 +183,24 @@ func _on_hit_taken() -> void:
 func _on_death_finished() -> void:
 	# Героиня не исчезает: остаётся лежать, игра узнаёт о смерти через шину.
 	Events.player_died.emit()
+
+
+func _on_health_changed(current: int, maximum: int) -> void:
+	print("Героиня: HP %d/%d" % [current, maximum])
+
+
+func _on_died() -> void:
+	print("Героиня погибла")
+
+
+func _on_god_mode_changed(is_on: bool) -> void:
+	immortal = is_on
+
+
+func _on_revive_requested() -> void:
+	if not is_alive():
+		_set_state(State.IDLE)
+		revive(position)
 
 
 func _walk_from_input() -> void:

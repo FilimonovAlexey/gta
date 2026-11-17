@@ -1,0 +1,36 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3]
+
+[ext_resource type="Script" path="res://scripts/actors/enemy_data.gd" id="1_data"]
+[ext_resource type="Script" path="res://scripts/actors/attack_data.gd" id="2_attack"]
+[ext_resource type="Resource" path="res://data/attacks/riot/shield_bash.tres" id="3_bash"]
+
+[resource]
+script = ExtResource("1_data")
+max_health = 110
+walk_speed_x = 160.0
+walk_speed_y = 100.0
+jump_velocity = 0.0
+gravity = 2000.0
+hurt_time = 0.3
+knockdown_launch_velocity = 400.0
+down_time = 1.0
+getup_time = 0.5
+getup_invuln_time = 0.5
+death_blink_time = 1.0
+hit_chain_window = 0.5
+hits_to_knockdown = 4
+enemy_type = "riot"
+placeholder_color = Color(0.24, 0.25, 0.27, 1)
+attacks = Array[ExtResource("2_attack")]([ExtResource("3_bash")])
+attack_range = 150.0
+preferred_distance = 250.0
+aggression = 0.4
+score = 200
+decision_interval_min = 0.2
+decision_interval_max = 0.4
+turn_delay = 0.6
+retreat_after_attack_chance = 0.2
+retreat_after_hit_chance = 0.1
+retreat_distance = 100.0
+has_shield = true
+shield_pushback = 200.0

@@ -57,6 +57,17 @@ func _ready() -> void:
 			(child as Actor).set_walk_bounds(bounds)
 
 
+## Добавить бойца в World в точку at (координаты улицы) и выдать ему границы ходьбы.
+func spawn_actor(actor: Actor, at: Vector2) -> void:
+	var world: Node = get_node_or_null("World")
+	if world == null:
+		push_error("Street: нет дочернего узла World")
+		return
+	actor.position = at
+	world.add_child(actor)
+	actor.set_walk_bounds(get_walk_bounds())
+
+
 ## Прямоугольник допустимых позиций бойцов (точек на земле).
 func get_walk_bounds() -> Rect2:
 	return Rect2(side_margin, walk_top, street_width - 2.0 * side_margin, walk_bottom - walk_top)

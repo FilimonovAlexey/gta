@@ -11,3 +11,11 @@ extends Node
 var score: int = 0
 ## Оставшиеся жизни героини.
 var lives: int = 3
+
+
+func _ready() -> void:
+	Events.enemy_defeated.connect(_on_enemy_defeated)
+
+
+func _on_enemy_defeated(points: int) -> void:
+	score += points

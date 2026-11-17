@@ -13,3 +13,4 @@ hitbox_rect = Rect2(15, -185, 70, 60)
 knockback = 260.0
 knockdown = true
 hitstop = 0.1
+guard_break = true

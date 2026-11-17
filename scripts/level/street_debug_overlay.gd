@@ -4,6 +4,8 @@ extends Node2D
 ## линии walk_top / walk_bottom, точка на земле под каждым бойцом,
 ## линия до спрайта в прыжке, хёртбоксы (зелёные), хитбоксы в активное окно
 ## (красные), полоса допуска по глубине под бойцом, подпись состояния, height и HP.
+## Над врагом — ромб: залитый жёлтый, если у него токен атаки, контур — если ждёт токена.
+## У бессмертного бойца в подписи — GOD.
 
 const BOUNDS_COLOR := Color(1.0, 0.9, 0.2, 0.9)
 const GROUND_COLOR := Color(1.0, 0.2, 0.2)
@@ -13,6 +15,9 @@ const HITBOX_COLOR := Color(1.0, 0.15, 0.15)
 const DEPTH_COLOR := Color(0.3, 0.7, 1.0)
 const TEXT_COLOR := Color(1.0, 1.0, 1.0)
 const OUTLINE_COLOR := Color(0.0, 0.0, 0.0)
+const TOKEN_COLOR := Color(1.0, 0.85, 0.1)
+## Полуразмер ромба токена, px.
+const TOKEN_SIZE: float = 9.0
 const FONT_SIZE: int = 16
 const LABEL_WIDTH: float = 220.0
 ## На сколько выше точки опоры спрайта рисовать подпись (рост ~180 px).
@@ -60,7 +65,14 @@ func _draw() -> void:
 		var label_pos: Vector2 = ground + Vector2(-LABEL_WIDTH * 0.5, -actor.height - LABEL_OFFSET)
 		var line_step := Vector2(0.0, FONT_SIZE + 2.0)
 		_draw_label(font, label_pos, actor.get_display_state())
-		_draw_label(font, label_pos + line_step, "h=%d  hp=%d" % [roundi(actor.height), actor.health])
+		var info: String = "h=%d  hp=%d" % [roundi(actor.height), actor.health]
+		if actor.immortal:
+			info += "  GOD"
+		_draw_label(font, label_pos + line_step, info)
+		var enemy := actor as Enemy
+		if enemy != null and (enemy.has_attack_token() or enemy.is_requesting_token()):
+			var center: Vector2 = label_pos + Vector2(LABEL_WIDTH * 0.5, -FONT_SIZE - TOKEN_SIZE)
+			_draw_token(center, enemy.has_attack_token())
 
 
 ## Полоса под бойцом: глубины, в пределах которых его удары засчитываются.
@@ -70,6 +82,19 @@ func _draw_depth_strip(actor: Actor, ground: Vector2) -> void:
 	var rect := Rect2(ground.x - half_width, ground.y - tolerance, half_width * 2.0, tolerance * 2.0)
 	draw_rect(rect, Color(DEPTH_COLOR, 0.2))
 	draw_rect(rect, Color(DEPTH_COLOR, 0.8), false, 1.0)
+
+
+## Ромб токена атаки: залитый — токен выдан, контур — враг в очереди.
+func _draw_token(center: Vector2, filled: bool) -> void:
+	var points := PackedVector2Array([
+		center + Vector2(0.0, -TOKEN_SIZE), center + Vector2(TOKEN_SIZE, 0.0),
+		center + Vector2(0.0, TOKEN_SIZE), center + Vector2(-TOKEN_SIZE, 0.0),
+	])
+	if filled:
+		draw_colored_polygon(points, TOKEN_COLOR)
+	var outline := points.duplicate()
+	outline.append(points[0])
+	draw_polyline(outline, OUTLINE_COLOR if filled else TOKEN_COLOR, 2.0)
 
 
 func _draw_box(global_rect: Rect2, color: Color) -> void:

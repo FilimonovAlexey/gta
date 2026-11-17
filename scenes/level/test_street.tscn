@@ -2,9 +2,15 @@
 
 [ext_resource type="Script" path="res://scripts/level/street.gd" id="1_street"]
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
-[ext_resource type="PackedScene" path="res://scenes/enemies/dummy.tscn" id="3_dummy"]
 [ext_resource type="Script" path="res://scripts/level/street_camera.gd" id="5_camera"]
 [ext_resource type="Script" path="res://scripts/level/street_debug_overlay.gd" id="6_overlay"]
+[ext_resource type="Script" path="res://scripts/ai/attack_director.gd" id="7_director"]
+[ext_resource type="Script" path="res://scripts/level/enemy_spawner.gd" id="8_spawner"]
+[ext_resource type="PackedScene" path="res://scenes/enemies/enemy.tscn" id="9_enemy"]
+[ext_resource type="Script" path="res://scripts/actors/enemy_data.gd" id="10_enemy_data"]
+[ext_resource type="Resource" path="res://data/enemies/patrol.tres" id="11_patrol"]
+[ext_resource type="Resource" path="res://data/enemies/bike.tres" id="12_bike"]
+[ext_resource type="Resource" path="res://data/enemies/riot.tres" id="13_riot"]
 
 [node name="TestStreet" type="Node2D"]
 script = ExtResource("1_street")
@@ -15,14 +21,14 @@ y_sort_enabled = true
 [node name="Player" parent="World" instance=ExtResource("2_player")]
 position = Vector2(300, 560)
 
-[node name="DummyFar" parent="World" instance=ExtResource("3_dummy")]
-position = Vector2(700, 455)
+[node name="AttackDirector" type="Node" parent="."]
+script = ExtResource("7_director")
 
-[node name="DummyMid" parent="World" instance=ExtResource("3_dummy")]
-position = Vector2(1100, 560)
-
-[node name="DummyNear" parent="World" instance=ExtResource("3_dummy")]
-position = Vector2(1550, 665)
+[node name="EnemySpawner" type="Node" parent="." node_paths=PackedStringArray("street")]
+script = ExtResource("8_spawner")
+street = NodePath("..")
+enemy_scene = ExtResource("9_enemy")
+enemy_types = Array[ExtResource("10_enemy_data")]([ExtResource("11_patrol"), ExtResource("12_bike"), ExtResource("13_riot")])
 
 [node name="Camera" type="Camera2D" parent="." node_paths=PackedStringArray("target")]
 position = Vector2(640, 360)

@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="AttackData" format=3]
+
+[ext_resource type="Script" path="res://scripts/actors/attack_data.gd" id="1_attack"]
+
+[resource]
+script = ExtResource("1_attack")
+name = "jab_1"
+damage = 5
+startup = 0.2
+active = 0.06
+recovery = 0.1
+hitbox_rect = Rect2(20, -150, 80, 28)
+knockback = 50.0
+knockdown = false
+hitstop = 0.05

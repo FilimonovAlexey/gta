@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="AttackData" format=3]
+
+[ext_resource type="Script" path="res://scripts/actors/attack_data.gd" id="1_attack"]
+
+[resource]
+script = ExtResource("1_attack")
+name = "shield_bash"
+damage = 14
+startup = 0.5
+active = 0.2
+recovery = 0.5
+hitbox_rect = Rect2(25, -172, 60, 150)
+knockback = 300.0
+knockdown = true
+hitstop = 0.1
+lunge_speed = 450.0

@@ -8,6 +8,11 @@ extends Camera2D
 @export var target: Node2D
 
 
+## Видимая часть мира (в глобальных координатах) для вьюпорта viewport.
+static func get_visible_world_rect(viewport: Viewport) -> Rect2:
+	return viewport.get_canvas_transform().affine_inverse() * viewport.get_visible_rect()
+
+
 func _ready() -> void:
 	_follow()
 	reset_smoothing()

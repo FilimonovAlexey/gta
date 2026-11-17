@@ -29,6 +29,10 @@ extends Resource
 @export var knockdown: bool = false
 ## Сколько замирают атакующий и цель в момент попадания, с.
 @export_range(0.0, 0.2, 0.01) var hitstop: float = 0.05
+## Пробивает ли щит спереди (апперкот, удар в прыжке).
+@export var guard_break: bool = false
+## Рывок вперёд в активное окно, px/с (0 — без рывка). Используется врагами.
+@export var lunge_speed: float = 0.0
 
 
 ## Момент конца активного окна от начала атаки, с.

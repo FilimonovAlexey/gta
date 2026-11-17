@@ -1,0 +1,13 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/actors/actor.tscn" id="1_actor"]
+[ext_resource type="Script" path="res://scripts/actors/enemy.gd" id="2_enemy"]
+[ext_resource type="Script" path="res://scripts/ui/actor_health_bar.gd" id="3_health_bar"]
+
+[node name="Enemy" instance=ExtResource("1_actor")]
+script = ExtResource("2_enemy")
+team = 1
+
+[node name="HealthBar" type="Node2D" parent="."]
+position = Vector2(0, -194)
+script = ExtResource("3_health_bar")

@@ -13,3 +13,6 @@ extends Node
 ## Героиня погибла (после падения и мигания).
 @warning_ignore("unused_signal")
 signal player_died
+## Враг побеждён (в начале падения); score — очки за него из EnemyData.
+@warning_ignore("unused_signal")
+signal enemy_defeated(score: int)

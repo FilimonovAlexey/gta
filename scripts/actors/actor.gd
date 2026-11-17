@@ -15,6 +15,10 @@ extends Node2D
 ## Атаки: наследник вызывает start_attack(), база ведёт фазы
 ## startup / active / recovery, включает Hitbox в активное окно, наносит урон
 ## найденным целям, ставит хитстоп и рисует «руку»-плейсхолдер.
+##
+## Попадание: take_hit() спрашивает у наследника _get_hit_response() —
+## HIT (обычный урон и реакция), BLOCKED (щит: урон 0, ударившего отталкивает,
+## синяя вспышка) или ARMORED (урон проходит, но боец не прерывается).
 
 ## Испускается в момент касания земли после прыжка или падения.
 signal landed
@@ -29,6 +33,8 @@ enum Team { PLAYER, ENEMY }
 enum Reaction { NONE, HURT, KNOCKDOWN, DOWN, GETUP, DEAD }
 ## Фаза текущей атаки.
 enum AttackPhase { NONE, STARTUP, ACTIVE, RECOVERY, FINISHED }
+## Чем закончилось попадание по бойцу.
+enum HitResult { IGNORED, HIT, BLOCKED, ARMORED }
 
 ## Сколько вершин у эллипса тени.
 const SHADOW_SEGMENTS: int = 24
@@ -40,6 +46,10 @@ const BLINK_PERIOD: float = 0.06
 ## Минимальная длительность белой вспышки при попадании, с.
 const FLASH_MIN_TIME: float = 0.06
 const FLASH_COLOR := Color(1.0, 1.0, 1.0)
+## Вспышка при блоке щитом.
+const BLOCK_FLASH_COLOR := Color(0.35, 0.6, 1.0)
+## Торможение внешнего толчка (apply_push), px/с².
+const PUSH_FRICTION: float = 1500.0
 ## За сколько секунд полёта боец поворачивается в лежачее положение.
 const FALL_ROTATE_TIME: float = 0.25
 ## Толщина и минимальная длина «руки»-плейсхолдера, px.
@@ -83,8 +93,10 @@ var health: int = 0
 var reaction: Reaction = Reaction.NONE
 ## Текущая атака (null — не атакует).
 var current_attack: AttackData
-## Попала ли текущая атака хотя бы по одной цели.
+## Попала ли текущая атака хотя бы по одной цели (блок щитом тоже считается).
 var attack_connected: bool = false
+## Бессмертие (отладка): здоровье не опускается ниже 1.
+var immortal: bool = false
 
 ## Время от начала текущей атаки (без учёта хитстопа), с.
 var _attack_time: float = 0.0
@@ -92,8 +104,11 @@ var _attack_time: float = 0.0
 var _reaction_time: float = 0.0
 ## Оставшийся хитстоп, с. Пока > 0, боец замер.
 var _hitstop_time: float = 0.0
-## Оставшаяся белая вспышка, с.
+## Оставшаяся вспышка и её цвет.
 var _flash_time: float = 0.0
+var _flash_color: Color = FLASH_COLOR
+## Внешний толчок вдоль улицы (отдача от щита), px/с. Затухает сам.
+var _push_speed: float = 0.0
 ## Оставшаяся неуязвимость после подъёма, с.
 var _invuln_time: float = 0.0
 ## Попаданий подряд и время с последнего попадания.
@@ -185,6 +200,21 @@ func get_state_name() -> String:
 	return "NONE"
 
 
+## Как боец принимает удар attack от attacker. По умолчанию — обычное попадание.
+func _get_hit_response(_attack: AttackData, _attacker: Actor) -> HitResult:
+	return HitResult.HIT
+
+
+## С какой скоростью отталкивать ударившего при блоке, px/с.
+func _get_block_pushback() -> float:
+	return 0.0
+
+
+## Цвет плейсхолдера в этот кадр. Наследник может добавить свои вспышки.
+func _get_body_color() -> Color:
+	return _flash_color if _flash_time > 0.0 else placeholder_color
+
+
 # --- Общий интерфейс ---------------------------------------------------------
 
 ## Подпись для отладки: реакция, если идёт, иначе состояние наследника.
@@ -255,30 +285,34 @@ func get_attack_phase() -> AttackPhase:
 
 
 ## Получить удар. Вызывается атакующим, когда его Hitbox нашёл этого бойца.
-func take_hit(attack: AttackData, attacker: Actor) -> void:
+func take_hit(attack: AttackData, attacker: Actor) -> HitResult:
 	if not can_be_hit():
-		return
-	# Куда отбрасывает: от атакующего. Лицом боец поворачивается к нему.
-	var push_dir: int = 1 if global_position.x >= attacker.global_position.x else -1
-	facing = -push_dir
-	health = maxi(health - attack.damage, 0)
-	health_changed.emit(health, stats.max_health)
-	_chain_hits = _chain_hits + 1 if _since_last_hit <= stats.hit_chain_window else 1
-	_since_last_hit = 0.0
-	freeze(attack.hitstop)
-	_flash_time = maxf(attack.hitstop, FLASH_MIN_TIME)
-	stop_attack()
-	_on_hit_taken()
-	var push_speed: float = push_dir * attack.knockback
-	if health == 0:
-		_start_fall(push_speed, Reaction.DEAD)
-		died.emit()
-	elif attack.knockdown or is_airborne() or _chain_hits >= stats.hits_to_knockdown:
-		_start_fall(push_speed, Reaction.KNOCKDOWN)
-	else:
-		_set_reaction(Reaction.HURT)
-		_hurt_push_speed = push_speed
-		velocity = Vector2(push_speed, 0.0)
+		return HitResult.IGNORED
+	var result: HitResult = _get_hit_response(attack, attacker)
+	match result:
+		HitResult.BLOCKED:
+			_block_hit(attack, attacker)
+		HitResult.ARMORED:
+			_receive_hit(attack, attacker, true)
+		_:
+			_receive_hit(attack, attacker, false)
+	return result
+
+
+## Толкнуть бойца вдоль улицы со скоростью speed (со знаком), px/с; толчок затухает.
+func apply_push(speed: float) -> void:
+	_push_speed = speed
+
+
+## Смотрит ли боец в сторону other (стоящий ровно напротив считается спереди).
+func is_facing_towards(other: Node2D) -> bool:
+	var dx: float = other.global_position.x - global_position.x
+	return is_zero_approx(dx) or signf(dx) == float(facing)
+
+
+## Время от начала текущей атаки, с.
+func get_attack_time() -> float:
+	return _attack_time
 
 
 ## Вернуть бойца к жизни в точке at с полным здоровьем.
@@ -291,6 +325,7 @@ func revive(at: Vector2) -> void:
 	velocity = Vector2.ZERO
 	_hitstop_time = 0.0
 	_flash_time = 0.0
+	_push_speed = 0.0
 	_invuln_time = 0.0
 	_chain_hits = 0
 	_since_last_hit = INF
@@ -302,6 +337,49 @@ func revive(at: Vector2) -> void:
 
 
 # --- Реакции на урон ---------------------------------------------------------
+
+## Урон прошёл. armored — броня: боец не прерывается и не разворачивается,
+## если удар его не сбивает и не убивает.
+func _receive_hit(attack: AttackData, attacker: Actor, armored: bool) -> void:
+	# Куда отбрасывает: от атакующего.
+	var push_dir: int = 1 if global_position.x >= attacker.global_position.x else -1
+	health = maxi(health - attack.damage, 1 if immortal else 0)
+	health_changed.emit(health, stats.max_health)
+	_chain_hits = _chain_hits + 1 if _since_last_hit <= stats.hit_chain_window else 1
+	_since_last_hit = 0.0
+	freeze(attack.hitstop)
+	_start_flash(FLASH_COLOR, attack.hitstop)
+	var falls: bool = attack.knockdown or is_airborne() or _chain_hits >= stats.hits_to_knockdown
+	if armored and health > 0 and not falls:
+		return
+	# Лицом боец поворачивается к атакующему.
+	facing = -push_dir
+	stop_attack()
+	_on_hit_taken()
+	var push_speed: float = push_dir * attack.knockback
+	if health == 0:
+		_start_fall(push_speed, Reaction.DEAD)
+		died.emit()
+	elif falls:
+		_start_fall(push_speed, Reaction.KNOCKDOWN)
+	else:
+		_set_reaction(Reaction.HURT)
+		_hurt_push_speed = push_speed
+		velocity = Vector2(push_speed, 0.0)
+
+
+## Удар принят щитом: урона нет, ударившего отталкивает назад.
+func _block_hit(attack: AttackData, attacker: Actor) -> void:
+	freeze(attack.hitstop)
+	_start_flash(BLOCK_FLASH_COLOR, attack.hitstop)
+	var away: int = 1 if attacker.global_position.x >= global_position.x else -1
+	attacker.apply_push(away * _get_block_pushback())
+
+
+func _start_flash(color: Color, duration: float) -> void:
+	_flash_color = color
+	_flash_time = maxf(duration, FLASH_MIN_TIME)
+
 
 func _set_reaction(new_reaction: Reaction) -> void:
 	reaction = new_reaction
@@ -397,19 +475,24 @@ func _check_hits() -> void:
 	var targets: Array[Actor] = hitbox.collect_hits()
 	if targets.is_empty():
 		return
-	attack_connected = true
 	var attack: AttackData = current_attack
+	var connected: bool = false
 	for target in targets:
-		target.take_hit(attack, self)
-	freeze(attack.hitstop)
+		if target.take_hit(attack, self) != HitResult.IGNORED:
+			connected = true
+	if connected:
+		attack_connected = true
+		freeze(attack.hitstop)
 
 
 # --- Движение и отрисовка ----------------------------------------------------
 
 func _move_on_ground(delta: float) -> void:
-	if velocity == Vector2.ZERO:
+	var motion: Vector2 = velocity + Vector2(_push_speed, 0.0)
+	_push_speed = move_toward(_push_speed, 0.0, PUSH_FRICTION * delta)
+	if motion == Vector2.ZERO:
 		return
-	position = _clamp_to_bounds(position + velocity * delta)
+	position = _clamp_to_bounds(position + motion * delta)
 
 
 func _apply_gravity(delta: float) -> void:
@@ -437,7 +520,7 @@ func _update_visual() -> void:
 	visual.position.y = -height - body.size.x * 0.5 * absf(sin(visual.rotation))
 	hurtbox.position.y = -height
 	hitbox.position.y = -height
-	body.color = FLASH_COLOR if _flash_time > 0.0 else placeholder_color
+	body.color = _get_body_color()
 	visual.visible = not _is_blinking() or fmod(_blink_clock, BLINK_PERIOD * 2.0) < BLINK_PERIOD
 	_update_arm()
 	var t: float = clampf(height / shadow_fade_height, 0.0, 1.0)

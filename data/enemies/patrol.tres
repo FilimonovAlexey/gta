@@ -1,0 +1,35 @@
+[gd_resource type="Resource" script_class="EnemyData" format=3]
+
+[ext_resource type="Script" path="res://scripts/actors/enemy_data.gd" id="1_data"]
+[ext_resource type="Script" path="res://scripts/actors/attack_data.gd" id="2_attack"]
+[ext_resource type="Resource" path="res://data/attacks/patrol/baton.tres" id="3_baton"]
+
+[resource]
+script = ExtResource("1_data")
+max_health = 70
+walk_speed_x = 200.0
+walk_speed_y = 120.0
+jump_velocity = 0.0
+gravity = 2000.0
+hurt_time = 0.3
+knockdown_launch_velocity = 450.0
+down_time = 0.9
+getup_time = 0.4
+getup_invuln_time = 0.5
+death_blink_time = 1.0
+hit_chain_window = 0.5
+hits_to_knockdown = 4
+enemy_type = "patrol"
+placeholder_color = Color(0.2, 0.35, 0.85, 1)
+attacks = Array[ExtResource("2_attack")]([ExtResource("3_baton")])
+attack_range = 140.0
+preferred_distance = 230.0
+aggression = 0.5
+score = 100
+decision_interval_min = 0.2
+decision_interval_max = 0.4
+turn_delay = 0.15
+retreat_after_attack_chance = 0.3
+retreat_after_hit_chance = 0.3
+retreat_distance = 120.0
+has_shield = false
