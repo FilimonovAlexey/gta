@@ -1,8 +1,8 @@
 # Miami Brawl (рабочее имя проекта «gta»)
 
 Godot 4.7.2, GDScript, рендерер Compatibility (нужен веб-экспорт). Окно 1280x720,
-stretch `canvas_items`, aspect `keep`, фильтр текстур Linear. Главная сцена —
-`res://scenes/main/main.tscn`. Бинарник: `/Applications/Godot.app/Contents/MacOS/Godot`.
+stretch `canvas_items`, aspect `keep`, фильтр текстур Linear. Главная сцена на время
+разработки — `res://scenes/level/test_street.tscn` (каркас `scenes/main/main.tscn` ждёт своего этапа). Бинарник: `/Applications/Godot.app/Contents/MacOS/Godot`.
 
 ## Игра
 2D-битемап с прокруткой в духе классики жанра 90-х. Солнечный Майами в комиксном стиле.
@@ -33,7 +33,7 @@ stretch `canvas_items`, aspect `keep`, фильтр текстур Linear. Гл�
 
 ### Папки
 - `scenes/{main,actors,player,enemies,boss,level,ui,fx}` — сцены.
-- `scripts/{core,actors,ai,ui}` — скрипты.
+- `scripts/{core,actors,ai,ui,level}` — скрипты (`level` — улица, камера, отладочный оверлей).
 - `data/` — `.tres` с параметрами бойцов и уровней.
 - `assets/{sprites,backgrounds,ui,fonts,audio/sfx,audio/music}` — то, что импортируется в игру.
 - `art_source/` — исходные сгенерированные листы; есть `.gdignore`, в игру не импортируются.
@@ -64,7 +64,24 @@ stretch `canvas_items`, aspect `keep`, фильтр текстур Linear. Гл�
 - После добавления/переименования `class_name`: `godot --headless --import --path .`.
 - Игра должна поддерживать пользовательский аргумент `--autoplay` (бот играет); autoplay не пишет сохранения.
 
+### Бойцы и уровень (этап 2)
+- `Actor` (`scripts/actors/actor.gd`, сцена `scenes/actors/actor.tscn`): Shadow (Polygon2D-эллипс) +
+  Visual (смещение `-height`, `scale.x = facing`) → Body (ColorRect, опора внизу по центру) + FacingMark.
+  Наследник переопределяет `_update_behavior()` и задаёт `velocity` (скорость по земле);
+  база двигает с ограничением `walk_bounds`, считает гравитацию, вызывает `_on_landed()` / сигнал `landed`.
+  Все бойцы в группе `actors`; `get_state_name()` — для отладочной подписи.
+- `ActorStats` (`scripts/actors/actor_stats.gd`): `max_health`, `walk_speed_x/y`, `jump_velocity`, `gravity`, `land_time`.
+  Прыжок героини: v = 600, g = 2000 → 0.6 с в воздухе, ~90 px вверх.
+- `Player` (`scripts/actors/player.gd`, `scenes/player/player.tscn`, наследует actor.tscn): IDLE / WALK / JUMP / LAND.
+- `Street` (`scripts/level/street.gd`, @tool): рисует фон, хранит `street_width`, `walk_top`, `walk_bottom`,
+  раздаёт границы бойцам в дочернем `World`. `StreetCamera` — слежение только по x.
+  `StreetDebugOverlay` — отрисовка по F1.
+- Экспорт-ссылки на узлы в `.tscn` требуют `node_paths=PackedStringArray(...)` в заголовке узла,
+  иначе остаются null.
+
 ## Проверка
+Аргументы для тестов: `-- --autoplay` (бот ходит и прыгает), `-- --debug-draw` (отладочная отрисовка сразу включена).
+
 После любых изменений запускать:
 ```
 godot --headless --path . --quit-after 300
@@ -75,3 +92,5 @@ godot --headless --path . --quit-after 300
 ## Статус
 - [x] Этап 0 — инициализация проекта: настройки, структура папок, Input Map, заготовки autoload
   (Events, Game, Debug), пустая main.tscn, git.
+- [x] Этап 2 — движение героини: Actor + ActorStats, Player (IDLE/WALK/JUMP/LAND, 8 направлений,
+  прыжок без управления в воздухе), тестовая улица с манекенами, камера по x, debug-отрисовка по F1.

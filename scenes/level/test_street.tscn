@@ -1,0 +1,47 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/level/street.gd" id="1_street"]
+[ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
+[ext_resource type="PackedScene" path="res://scenes/actors/actor.tscn" id="3_actor"]
+[ext_resource type="Resource" path="res://data/dummy_stats.tres" id="4_dummy"]
+[ext_resource type="Script" path="res://scripts/level/street_camera.gd" id="5_camera"]
+[ext_resource type="Script" path="res://scripts/level/street_debug_overlay.gd" id="6_overlay"]
+
+[node name="TestStreet" type="Node2D"]
+script = ExtResource("1_street")
+
+[node name="World" type="Node2D" parent="."]
+y_sort_enabled = true
+
+[node name="Player" parent="World" instance=ExtResource("2_player")]
+position = Vector2(300, 560)
+
+[node name="DummyFar" parent="World" instance=ExtResource("3_actor")]
+position = Vector2(700, 455)
+stats = ExtResource("4_dummy")
+placeholder_color = Color(0.62, 0.62, 0.64, 1)
+
+[node name="DummyMid" parent="World" instance=ExtResource("3_actor")]
+position = Vector2(1100, 560)
+stats = ExtResource("4_dummy")
+placeholder_color = Color(0.62, 0.62, 0.64, 1)
+
+[node name="DummyNear" parent="World" instance=ExtResource("3_actor")]
+position = Vector2(1550, 665)
+stats = ExtResource("4_dummy")
+placeholder_color = Color(0.62, 0.62, 0.64, 1)
+
+[node name="Camera" type="Camera2D" parent="." node_paths=PackedStringArray("target")]
+position = Vector2(640, 360)
+script = ExtResource("5_camera")
+target = NodePath("../World/Player")
+limit_left = 0
+limit_top = 0
+limit_right = 2560
+limit_bottom = 720
+position_smoothing_enabled = true
+position_smoothing_speed = 6.0
+
+[node name="DebugOverlay" type="Node2D" parent="." node_paths=PackedStringArray("street")]
+script = ExtResource("6_overlay")
+street = NodePath("..")

@@ -14,6 +14,11 @@ signal toggled(is_enabled: bool)
 var enabled: bool = false
 
 
+func _ready() -> void:
+	# Пользовательский аргумент --debug-draw включает отрисовку сразу (для автотестов).
+	enabled = OS.get_cmdline_user_args().has("--debug-draw")
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("debug_toggle"):
 		enabled = not enabled
