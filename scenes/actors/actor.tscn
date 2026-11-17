@@ -3,6 +3,7 @@
 [ext_resource type="Script" path="res://scripts/actors/actor.gd" id="1_actor"]
 [ext_resource type="Script" path="res://scripts/actors/hurtbox.gd" id="2_hurtbox"]
 [ext_resource type="Script" path="res://scripts/actors/hitbox.gd" id="3_hitbox"]
+[ext_resource type="Script" path="res://scripts/actors/actor_sprite.gd" id="4_sprite"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_body"]
 size = Vector2(60, 180)
@@ -24,6 +25,10 @@ offset_top = -180.0
 offset_right = 30.0
 mouse_filter = 2
 color = Color(0.5, 0.5, 0.5, 1)
+
+[node name="Sprite" type="AnimatedSprite2D" parent="Visual"]
+visible = false
+script = ExtResource("4_sprite")
 
 [node name="FacingMark" type="ColorRect" parent="Visual"]
 offset_left = 14.0

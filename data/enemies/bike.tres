@@ -12,6 +12,17 @@ walk_speed_x = 330.0
 walk_speed_y = 200.0
 jump_velocity = 0.0
 gravity = 2000.0
+sprite_frames_path = "res://assets/sprites/bike/bike.tres"
+animation_fallbacks = {
+"attack": "walk:0",
+"getup": "walk:0",
+"hurt": "walk:0",
+"idle": "walk:0",
+"knockdown": "walk:0"
+}
+walk_stride = 150.0
+hurtbox_rect = Rect2(-22, -180, 44, 180)
+shadow_radius = Vector2(42, 12)
 hurt_time = 0.3
 knockdown_launch_velocity = 480.0
 down_time = 0.7

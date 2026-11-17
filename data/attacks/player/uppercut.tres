@@ -6,10 +6,10 @@
 script = ExtResource("1_attack")
 name = "uppercut"
 damage = 16
-startup = 0.1
-active = 0.08
-recovery = 0.35
-hitbox_rect = Rect2(15, -185, 70, 60)
+animation = &"uppercut"
+frame_durations = PackedFloat32Array(0.1, 0.08, 0.35)
+active_frames = PackedInt32Array(1)
+hitbox_rect = Rect2(10, -195, 66, 75)
 knockback = 260.0
 knockdown = true
 hitstop = 0.1

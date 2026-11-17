@@ -10,14 +10,12 @@ extends Actor
 ## появляется случайный бонус из data.drops, а сам предмет отлетает (реакция DEAD),
 ## мигает и исчезает.
 ## Если у PropData есть картинка (texture_path) — вместо прямоугольника спрайт; при разрушении
-## он меняется на broken_texture_path. Вспышка удара — пересвет спрайта (modulate > 1).
+## он меняется на broken_texture_path. Вспышка удара — общий шейдер бойцов (Actor).
 
 const GROUP: StringName = &"breakables"
 ## Тряска при ударе: длительность, с, и размах, px.
 const SHAKE_TIME: float = 0.18
 const SHAKE_AMPLITUDE: float = 5.0
-## Пересвет спрайта во время вспышки.
-const SPRITE_FLASH := Color(2.5, 2.5, 2.5)
 
 ## Тип предмета. Задаётся до добавления в дерево.
 @export var data: PropData
@@ -76,8 +74,10 @@ func _update_visual() -> void:
 	super._update_visual()
 	var k: float = _shake_time / SHAKE_TIME
 	visual.position.x = sin(_shake_time * 90.0) * SHAKE_AMPLITUDE * k
+	facing_mark.visible = false
 	if _sprite != null:
-		_sprite.self_modulate = SPRITE_FLASH if _flash_time > 0.0 else Color.WHITE
+		# Картинка предмета вместо прямоугольника (Actor включает Body, когда нет SpriteFrames).
+		body.visible = false
 
 
 func _break_apart(attacker: Actor) -> void:
@@ -100,21 +100,13 @@ func _spawn_drop() -> void:
 	get_parent().add_child(pickup)
 
 
-## Плейсхолдер и хёртбокс под размер предмета (хёртбокс — в рост бойца, см. hurtbox_height). Форма хёртбокса — своя:
-## sub_resource в actor.tscn общий для всех экземпляров.
+## Плейсхолдер и хёртбокс под размер предмета (хёртбокс — в рост бойца, см. hurtbox_height).
 func _apply_size() -> void:
 	var size: Vector2 = data.body_size
 	body.position = Vector2(-size.x * 0.5, -size.y)
 	body.size = size
-	var mark := get_node_or_null("Visual/FacingMark") as CanvasItem
-	if mark != null:
-		mark.visible = false
-	var shape_node := hurtbox.get_node("Shape") as CollisionShape2D
-	var rect := RectangleShape2D.new()
 	var hurt_height: float = maxf(data.hurtbox_height, size.y)
-	rect.size = Vector2(size.x, hurt_height)
-	shape_node.shape = rect
-	shape_node.position = Vector2(0.0, -hurt_height * 0.5)
+	_apply_hurtbox_rect(Rect2(-size.x * 0.5, -hurt_height, size.x, hurt_height))
 
 
 ## Спрайт вместо прямоугольника, если картинка предмета есть.
@@ -125,6 +117,7 @@ func _setup_sprite() -> void:
 	_sprite.name = "Sprite"
 	_sprite.centered = false
 	visual.add_child(_sprite)
+	add_to_flash_material(_sprite)
 	_set_sprite_texture(load(data.texture_path) as Texture2D)
 	body.visible = false
 

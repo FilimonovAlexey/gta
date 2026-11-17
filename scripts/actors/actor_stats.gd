@@ -17,6 +17,24 @@ extends Resource
 ## Длительность приземления после прыжка, с.
 @export var land_time: float = 0.1
 
+@export_group("Спрайт")
+## SpriteFrames персонажа (assets/sprites/<персонаж>/<персонаж>.tres). Пусто или нет файла —
+## прямоугольник-плейсхолдер.
+@export_file("*.tres") var sprite_frames_path: String = ""
+## Замены недостающих анимаций: "имя" → "другая_анимация:кадр" (стоп-кадр).
+## Нет ни анимации, ни замены — на это состояние боец рисуется прямоугольником.
+@export var animation_fallbacks: Dictionary = {}
+## Сколько px проходит боец за один цикл анимации walk (два шага). По нему ходьба
+## ускоряется и замедляется вместе со скоростью, чтобы ноги не скользили.
+@export var walk_stride: float = 170.0
+
+@export_group("Тело")
+## Хёртбокс в координатах бойца, смотрящего вправо: (0,0) — точка на земле, y вверх
+## отрицательный. Подогнан под спрайт стойки (рамка F1 лежит на рисунке).
+@export var hurtbox_rect: Rect2 = Rect2(-30.0, -180.0, 60.0, 180.0)
+## Полуоси эллипса тени на земле (по ширине стопы в стойке).
+@export var shadow_radius: Vector2 = Vector2(38.0, 12.0)
+
 @export_group("Реакции на урон")
 ## Оглушение после лёгкого попадания (HURT), с.
 @export var hurt_time: float = 0.3
@@ -48,3 +66,7 @@ extends Resource
 @export var pickup_depth_tolerance: float = 24.0
 ## Сколько длится подбор (боец стоит на месте), с.
 @export var pickup_time: float = 0.25
+
+@export_group("Победа")
+## Сколько героиня празднует снятие замка (анимация victory), с.
+@export var victory_time: float = 1.0

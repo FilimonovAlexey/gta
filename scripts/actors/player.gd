@@ -1,6 +1,6 @@
 class_name Player
 extends Actor
-## Героиня. Автомат поведения IDLE / WALK / JUMP / JUMP_ATTACK / LAND / ATTACK / PICKUP;
+## Героиня. Автомат поведения IDLE / WALK / JUMP / JUMP_ATTACK / LAND / ATTACK / PICKUP / VICTORY;
 ## реакции на урон (HURT, KNOCKDOWN, …) ведёт базовый Actor.
 ##
 ## - Ходьба в 8 направлений; Input.get_vector нормирует диагональ.
@@ -13,11 +13,23 @@ extends Actor
 ##   серии начинается в конце активного окна предыдущего.
 ## - Во время атаки ходить нельзя; разворот — только в момент начала удара.
 ## - attack рядом с бонусом (Pickup) на той же глубине — подбор (PICKUP) вместо удара.
+## - Снят замок сегмента (Events.segment_cleared) — VICTORY: анимация victory на stats.victory_time;
+##   если героиня в этот момент бьёт или в воздухе — как только освободится. Движение,
+##   удар или прыжок прерывают празднование после VICTORY_MIN_TIME.
+## - Анимации: idle, walk (скорость по движению), jump (кадр 0 — отталкивание, 1 — весь полёт,
+##   2 — приземление LAND), удары — по своим AttackData, pickup (нет — запасной кадр), victory.
 ## - С пользовательским аргументом --autoplay вместо игрока управляет бот.
 ## - Здоровье и смерть пока только в выводе отладки; бессмертие — Debug.god_mode,
 ##   R в режиме отладки воскрешает.
 
-enum State { IDLE, WALK, JUMP, JUMP_ATTACK, LAND, ATTACK, PICKUP }
+enum State { IDLE, WALK, JUMP, JUMP_ATTACK, LAND, ATTACK, PICKUP, VICTORY }
+
+## Прыжок: сколько секунд от отталкивания показывается кадр 0 анимации jump.
+const JUMP_TAKEOFF_TIME: float = 0.1
+## Празднование нельзя прервать раньше, с.
+const VICTORY_MIN_TIME: float = 0.3
+## Сколько ждать, пока героиня освободится для празднования (иначе — не праздновать), с.
+const VICTORY_WAIT_TIME: float = 1.5
 
 ## Бот без цели: как часто меняет направление, с.
 const BOT_MOVE_PERIOD: float = 1.2
@@ -65,6 +77,8 @@ var _next_combo_index: int = 0
 var _combo_idle_time: float = 0.0
 ## Был ли уже удар в текущем прыжке.
 var _air_attack_used: bool = false
+## Сколько ещё ждать возможности отпраздновать снятый замок, с (0 — не ждём).
+var _victory_wait: float = 0.0
 
 var _autoplay: bool = OS.get_cmdline_user_args().has("--autoplay")
 var _bot_time: float = 0.0
@@ -79,6 +93,7 @@ func _ready() -> void:
 	Debug.revive_requested.connect(_on_revive_requested)
 	health_changed.connect(_on_health_changed)
 	died.connect(_on_died)
+	Events.segment_cleared.connect(_on_segment_cleared)
 
 
 func get_state_name() -> String:
@@ -105,7 +120,17 @@ func _read_controls(delta: float) -> void:
 
 func _update_behavior(delta: float) -> void:
 	_state_time += delta
+	_victory_wait = maxf(_victory_wait - delta, 0.0)
+	if _victory_wait > 0.0 and (state == State.IDLE or state == State.WALK):
+		_victory_wait = 0.0
+		velocity = Vector2.ZERO
+		_set_state(State.VICTORY)
 	match state:
+		State.VICTORY:
+			velocity = Vector2.ZERO
+			var wants_out: bool = _input_move != Vector2.ZERO or _jump_pressed or _attack_buffer > 0.0
+			if _state_time >= stats.victory_time or (wants_out and _state_time >= VICTORY_MIN_TIME):
+				_set_state(State.IDLE)
 		State.IDLE, State.WALK:
 			_combo_idle_time += delta
 			if _combo_idle_time > stats.combo_reset_time:
@@ -193,11 +218,27 @@ func _find_pickup_in_reach() -> Pickup:
 	return null
 
 
+func _animate_behavior() -> ActorSprite.Shown:
+	match state:
+		State.WALK:
+			return play_walk_animation()
+		State.JUMP, State.JUMP_ATTACK:
+			var takeoff: bool = state == State.JUMP and not _air_attack_used and vertical_velocity > 0.0 and _state_time < JUMP_TAKEOFF_TIME
+			return show_animation_frame(&"jump", 0 if takeoff else 1)
+		State.LAND:
+			return show_animation_frame(&"jump", 2)
+		State.PICKUP:
+			return show_animation_frame(&"pickup", 0)
+		State.VICTORY:
+			return show_animation_once(&"victory", _state_time)
+	return play_animation(&"idle")
+
+
 func _update_visual() -> void:
 	super._update_visual()
-	# Подбор: плейсхолдер приседает (без анимаций).
+	# Подбор: плейсхолдер приседает (у спрайта — свой кадр).
 	var squash: float = 0.0
-	if state == State.PICKUP and reaction == Reaction.NONE:
+	if state == State.PICKUP and reaction == Reaction.NONE and not is_sprite_shown():
 		squash = PICKUP_SQUASH * sin(PI * clampf(_state_time / maxf(stats.pickup_time, 0.001), 0.0, 1.0))
 	visual.scale.y = 1.0 - squash
 
@@ -219,6 +260,7 @@ func _on_landed() -> void:
 
 func _on_hit_taken() -> void:
 	_set_state(State.IDLE)
+	_victory_wait = 0.0
 	_next_combo_index = 0
 	_attack_buffer = 0.0
 
@@ -226,6 +268,11 @@ func _on_hit_taken() -> void:
 func _on_death_finished() -> void:
 	# Героиня не исчезает: остаётся лежать, игра узнаёт о смерти через шину.
 	Events.player_died.emit()
+
+
+func _on_segment_cleared(_index: int) -> void:
+	if is_alive():
+		_victory_wait = VICTORY_WAIT_TIME
 
 
 func _on_health_changed(current: int, maximum: int) -> void:

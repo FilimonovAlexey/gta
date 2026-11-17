@@ -21,11 +21,14 @@ enum State { ENTER, APPROACH, WAIT, ATTACK, RETREAT }
 
 const GROUP: StringName = &"enemies"
 ## Цвет и полупериод мигания в замахе.
-const WINDUP_COLOR := Color(1.0, 0.9, 0.15)
+## Альфа — сила подмешивания в шейдере вспышки.
+const WINDUP_COLOR := Color(1.0, 0.9, 0.15, 0.6)
 const WINDUP_BLINK_PERIOD: float = 0.05
 ## Плейсхолдер щита (в координатах Visual, взгляд вправо).
 const SHIELD_RECT := Rect2(26.0, -172.0, 14.0, 140.0)
 const SHIELD_COLOR := Color(0.55, 0.72, 0.92, 0.95)
+## Полоска здоровья — на столько выше верха хёртбокса, px.
+const HEALTH_BAR_GAP: float = 14.0
 ## Точка считается достигнутой с такой точностью, px.
 const ARRIVE_X: float = 10.0
 const ARRIVE_Y: float = 6.0
@@ -123,6 +126,9 @@ func _ready() -> void:
 	_move_target = position
 	if data.has_shield:
 		_create_shield()
+	var health_bar := get_node_or_null("HealthBar") as Node2D
+	if health_bar != null:
+		health_bar.position.y = data.hurtbox_rect.position.y - HEALTH_BAR_GAP
 	died.connect(_on_died)
 	if _has_enter_point:
 		_set_state(State.ENTER)
@@ -340,11 +346,24 @@ func _get_block_pushback() -> float:
 	return data.shield_pushback
 
 
-func _get_body_color() -> Color:
+## Замах мигает жёлтым через шейдер вспышки (поверх удара/блока не рисуется).
+func _get_flash() -> Color:
 	if _flash_time <= 0.0 and get_attack_phase() == AttackPhase.STARTUP:
 		if fmod(get_attack_time(), WINDUP_BLINK_PERIOD * 2.0) < WINDUP_BLINK_PERIOD:
 			return WINDUP_COLOR
-	return super._get_body_color()
+	return super._get_flash()
+
+
+## Стоит — стойка, идёт — ходьба со скоростью движения (пятясь — задом наперёд).
+func _animate_behavior() -> ActorSprite.Shown:
+	return play_walk_animation() if is_moving() else play_animation(&"idle")
+
+
+func _update_visual() -> void:
+	super._update_visual()
+	# Щит нарисован на спрайте; прямоугольник щита — только у плейсхолдера.
+	if _shield != null:
+		_shield.visible = not is_sprite_shown()
 
 
 # --- Вспомогательное -----------------------------------------------------------
@@ -505,3 +524,4 @@ func _create_shield() -> void:
 	_shield.color = SHIELD_COLOR
 	_shield.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	visual.add_child(_shield)
+	add_to_flash_material(_shield)

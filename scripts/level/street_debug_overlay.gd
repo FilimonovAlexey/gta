@@ -20,8 +20,8 @@ const TOKEN_COLOR := Color(1.0, 0.85, 0.1)
 const TOKEN_SIZE: float = 9.0
 const FONT_SIZE: int = 16
 const LABEL_WIDTH: float = 220.0
-## На сколько выше точки опоры спрайта рисовать подпись (рост ~180 px).
-const LABEL_OFFSET: float = 236.0
+## На сколько выше верха хёртбокса рисовать подпись (рост у бойцов разный).
+const LABEL_OFFSET: float = 56.0
 
 ## Улица, чьи границы рисовать.
 @export var street: Street
@@ -62,7 +62,8 @@ func _draw() -> void:
 		if actor.height > 0.0:
 			draw_line(ground, ground - Vector2(0.0, actor.height), HEIGHT_COLOR, 2.0)
 		draw_circle(ground, 5.0, GROUND_COLOR)
-		var label_pos: Vector2 = ground + Vector2(-LABEL_WIDTH * 0.5, -actor.height - LABEL_OFFSET)
+		var body_top: float = to_local(actor.hurtbox.get_global_rect().position).y
+		var label_pos := Vector2(ground.x - LABEL_WIDTH * 0.5, body_top - LABEL_OFFSET)
 		var line_step := Vector2(0.0, FONT_SIZE + 2.0)
 		_draw_label(font, label_pos, actor.get_display_state())
 		var info: String = "h=%d  hp=%d" % [roundi(actor.height), actor.health]

@@ -6,10 +6,10 @@
 script = ExtResource("1_attack")
 name = "jab"
 damage = 6
-startup = 0.05
-active = 0.06
-recovery = 0.15
-hitbox_rect = Rect2(20, -150, 70, 28)
+animation = &"jab"
+frame_durations = PackedFloat32Array(0.05, 0.06, 0.15)
+active_frames = PackedInt32Array(1)
+hitbox_rect = Rect2(20, -157, 66, 28)
 knockback = 60.0
 knockdown = false
 hitstop = 0.05

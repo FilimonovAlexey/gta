@@ -12,9 +12,15 @@ extends Node2D
 ## - нижний — поведение наследника: он переопределяет _update_behavior()
 ##   и задаёт velocity. Пока реакция не NONE, _update_behavior() не вызывается.
 ##
-## Атаки: наследник вызывает start_attack(), база ведёт фазы
-## startup / active / recovery, включает Hitbox в активное окно, наносит урон
-## найденным целям, ставит хитстоп и рисует «руку»-плейсхолдер.
+## Атаки: наследник вызывает start_attack(), база ведёт кадры атаки
+## (AttackData.frame_durations), показывает их на спрайте и включает Hitbox по сигналу
+## frame_changed на активных кадрах; наносит урон найденным целям и ставит хитстоп.
+## Если анимации атаки нет — из бойца вытягивается «рука»-плейсхолдер.
+##
+## Вид: Visual/Sprite (ActorSprite, SpriteFrames из stats.sprite_frames_path). Реакции и атаки
+## анимирует база, поведение — наследник в _animate_behavior(). Нет ни анимации, ни замены —
+## на это время виден прямоугольник Body. Вспышки и мигание — общий шейдер на Visual
+## (assets/shaders/actor_flash.gdshader).
 ##
 ## Попадание: take_hit() спрашивает у наследника _get_hit_response() —
 ## HIT (обычный урон и реакция), BLOCKED (щит: урон 0, ударившего отталкивает,
@@ -45,9 +51,15 @@ const LAYER_ENEMY_HURTBOX: int = 2
 const BLINK_PERIOD: float = 0.06
 ## Минимальная длительность белой вспышки при попадании, с.
 const FLASH_MIN_TIME: float = 0.06
-const FLASH_COLOR := Color(1.0, 1.0, 1.0)
+## Цвет вспышки при попадании; альфа — сила подмешивания в шейдере (flash_amount).
+const FLASH_COLOR := Color(1.0, 1.0, 1.0, 0.85)
 ## Вспышка при блоке щитом.
-const BLOCK_FLASH_COLOR := Color(0.35, 0.6, 1.0)
+const BLOCK_FLASH_COLOR := Color(0.35, 0.6, 1.0, 0.75)
+## Общий шейдер вспышки и мигания.
+const FLASH_SHADER: Shader = preload("res://assets/shaders/actor_flash.gdshader")
+## Ходьба: минимальная скорость анимации (доля от нормальной) и скорость, с которой боец считается идущим, px/с.
+const WALK_ANIM_MIN_SPEED: float = 0.4
+const MOVING_SPEED: float = 5.0
 ## Торможение внешнего толчка (apply_push), px/с².
 const PUSH_FRICTION: float = 1500.0
 ## За сколько секунд полёта боец поворачивается в лежачее положение.
@@ -64,8 +76,6 @@ const ARM_MIN_LENGTH: float = 16.0
 @export var team: Team = Team.ENEMY
 
 @export_group("Shadow")
-## Полуоси эллипса тени на земле.
-@export var shadow_radius: Vector2 = Vector2(38.0, 12.0)
 ## Непрозрачность тени, когда боец стоит на земле.
 @export_range(0.0, 1.0) var shadow_alpha: float = 0.35
 ## Непрозрачность тени на высоте shadow_fade_height и выше.
@@ -75,6 +85,8 @@ const ARM_MIN_LENGTH: float = 16.0
 ## Высота, на которой тень уменьшается и бледнеет до минимума.
 @export var shadow_fade_height: float = 180.0
 
+## Полуоси эллипса тени. Нулевые — берутся из stats.shadow_radius (наследник может задать до super._ready()).
+var shadow_radius: Vector2 = Vector2.ZERO
 ## Высота над землёй (>= 0).
 var height: float = 0.0
 ## Вертикальная скорость по height, px/с (вверх — положительная).
@@ -122,11 +134,21 @@ var _dead_on_ground: bool = false
 var _death_finished: bool = false
 ## Часы для мигания.
 var _blink_clock: float = 0.0
+## Кадр текущей атаки (-1 — атаки нет или она кончилась).
+var _attack_frame: int = -1
+## Пришёл ли frame_changed от спрайта при последней смене кадра атаки.
+var _frame_signal_seen: bool = false
+## Что показал спрайт в этот кадр (NONE — виден прямоугольник).
+var _sprite_shown: ActorSprite.Shown = ActorSprite.Shown.NONE
+## Материал с шейдером вспышки — свой у каждого бойца (на Visual, дети берут его через use_parent_material).
+var _flash_material: ShaderMaterial
 
 @onready var shadow: Polygon2D = $Shadow
 @onready var visual: Node2D = $Visual
 @onready var body: ColorRect = $Visual/Body
 @onready var arm: ColorRect = $Visual/Arm
+@onready var facing_mark: CanvasItem = $Visual/FacingMark
+@onready var sprite: ActorSprite = $Visual/Sprite
 @onready var hurtbox: Hurtbox = $Hurtbox
 @onready var hitbox: Hitbox = $Hitbox
 
@@ -140,7 +162,17 @@ func _ready() -> void:
 	body.color = placeholder_color
 	arm.color = placeholder_color.darkened(0.25)
 	arm.visible = false
+	if shadow_radius == Vector2.ZERO:
+		shadow_radius = stats.shadow_radius
 	shadow.polygon = _make_ellipse(shadow_radius)
+	_apply_hurtbox_rect(stats.hurtbox_rect)
+	_flash_material = ShaderMaterial.new()
+	_flash_material.shader = FLASH_SHADER
+	visual.material = _flash_material
+	for child in visual.get_children():
+		add_to_flash_material(child as CanvasItem)
+	sprite.setup(stats.sprite_frames_path, stats.animation_fallbacks)
+	sprite.frame_changed.connect(_on_sprite_frame_changed)
 	var is_player: bool = team == Team.PLAYER
 	hurtbox.collision_layer = LAYER_PLAYER_HURTBOX if is_player else LAYER_ENEMY_HURTBOX
 	hitbox.collision_mask = LAYER_ENEMY_HURTBOX if is_player else LAYER_PLAYER_HURTBOX
@@ -210,9 +242,15 @@ func _get_block_pushback() -> float:
 	return 0.0
 
 
-## Цвет плейсхолдера в этот кадр. Наследник может добавить свои вспышки.
-func _get_body_color() -> Color:
-	return _flash_color if _flash_time > 0.0 else placeholder_color
+## Вспышка в этот кадр: rgb — цвет, a — сила (0 — нет). Наследник может добавить свои.
+func _get_flash() -> Color:
+	return _flash_color if _flash_time > 0.0 else Color(1.0, 1.0, 1.0, 0.0)
+
+
+## Анимация поведения (реакций и атаки нет): наследник вызывает play_animation() /
+## show_animation_frame() / … и возвращает их результат. По умолчанию — стойка.
+func _animate_behavior() -> ActorSprite.Shown:
+	return play_animation(&"idle")
 
 
 # --- Общий интерфейс ---------------------------------------------------------
@@ -262,20 +300,22 @@ func start_attack(attack: AttackData) -> void:
 	current_attack = attack
 	attack_connected = false
 	_attack_time = 0.0
+	_attack_frame = -1
 	hitbox.deactivate()
-	_sync_hitbox()
+	_sync_attack_frame()
 
 
 ## Прервать или завершить текущую атаку.
 func stop_attack() -> void:
 	current_attack = null
+	_attack_frame = -1
 	hitbox.deactivate()
 
 
 func get_attack_phase() -> AttackPhase:
 	if current_attack == null:
 		return AttackPhase.NONE
-	if _attack_time < current_attack.startup:
+	if _attack_time < current_attack.get_active_start():
 		return AttackPhase.STARTUP
 	if _attack_time < current_attack.get_active_end():
 		return AttackPhase.ACTIVE
@@ -357,6 +397,59 @@ func revive(at: Vector2) -> void:
 	set_physics_process(true)
 	health_changed.emit(health, stats.max_health)
 	_update_visual()
+
+
+## Добавить узел внутри Visual к общему шейдеру вспышки (спрайт предмета, щит…).
+func add_to_flash_material(item: CanvasItem) -> void:
+	if item != null:
+		item.use_parent_material = true
+
+
+## Виден ли сейчас спрайт (своя анимация или запасной кадр), а не прямоугольник.
+func is_sprite_shown() -> bool:
+	return _sprite_shown != ActorSprite.Shown.NONE
+
+
+## Проиграть анимацию по кругу (stop в хитстопе — сам).
+func play_animation(anim: StringName, speed: float = 1.0) -> ActorSprite.Shown:
+	return sprite.play_loop(anim, speed, _hitstop_time > 0.0)
+
+
+## Показать кадр index анимации anim.
+func show_animation_frame(anim: StringName, index: int) -> ActorSprite.Shown:
+	return sprite.show_frame(anim, index)
+
+
+## Растянуть анимацию на отрезок: t — доля пройденного, 0..1.
+func show_animation_progress(anim: StringName, t: float) -> ActorSprite.Shown:
+	var count: int = sprite.get_own_frame_count(anim)
+	return sprite.show_frame(anim, mini(int(clampf(t, 0.0, 1.0) * count), count - 1))
+
+
+## Проиграть анимацию один раз с её скоростью и остаться на последнем кадре; time — с начала, с.
+func show_animation_once(anim: StringName, time: float) -> ActorSprite.Shown:
+	return sprite.show_frame(anim, int(time * sprite.get_own_fps(anim)))
+
+
+## Ходьба со скоростью по velocity: шаг совпадает с движением (stats.walk_stride).
+## Пятится (движется против взгляда) — анимация идёт назад.
+func play_walk_animation() -> ActorSprite.Shown:
+	var count: int = sprite.get_own_frame_count(&"walk")
+	var fps: float = sprite.get_own_fps(&"walk")
+	if count == 0 or fps <= 0.0:
+		return play_animation(&"walk")
+	# Доля от полной скорости в любом направлении: по глубине боец ходит медленнее.
+	var ratio: float = Vector2(velocity.x / maxf(stats.walk_speed_x, 1.0), velocity.y / maxf(stats.walk_speed_y, 1.0)).length()
+	var natural_speed: float = stats.walk_stride * fps / count
+	var speed: float = maxf(ratio * stats.walk_speed_x / maxf(natural_speed, 1.0), WALK_ANIM_MIN_SPEED)
+	if velocity.x * facing < -MOVING_SPEED:
+		speed = -speed
+	return play_animation(&"walk", speed)
+
+
+## Движется ли боец по земле.
+func is_moving() -> bool:
+	return velocity.length() > MOVING_SPEED
 
 
 # --- Реакции на урон ---------------------------------------------------------
@@ -480,15 +573,39 @@ func _tick_attack(delta: float) -> void:
 	if current_attack == null:
 		return
 	_attack_time += delta
-	_sync_hitbox()
+	_sync_attack_frame()
 
 
-## Хитбокс включён ровно в активное окно текущей атаки.
-func _sync_hitbox() -> void:
-	var is_active_phase: bool = get_attack_phase() == AttackPhase.ACTIVE
-	if is_active_phase and not hitbox.is_active():
+## Перейти на кадр атаки по таймлайну. Если у спрайта есть анимация атаки, кадр ставится
+## на спрайт, и хитбокс переключает его сигнал frame_changed; иначе — напрямую.
+func _sync_attack_frame() -> void:
+	var index: int = current_attack.get_frame_at(_attack_time)
+	if index == _attack_frame:
+		return
+	_attack_frame = index
+	_frame_signal_seen = false
+	var anim: StringName = current_attack.animation
+	if index >= 0 and sprite.has_own(anim):
+		sprite.show_frame(anim, index)
+	if not _frame_signal_seen:
+		_apply_attack_frame(index)
+
+
+func _on_sprite_frame_changed() -> void:
+	if current_attack == null or sprite.animation != current_attack.animation:
+		return
+	if not sprite.has_own(current_attack.animation):
+		return
+	_frame_signal_seen = true
+	_apply_attack_frame(sprite.frame)
+
+
+## Хитбокс включён ровно на активных кадрах атаки.
+func _apply_attack_frame(index: int) -> void:
+	var is_active_frame: bool = index >= 0 and current_attack != null and current_attack.is_active_frame(index)
+	if is_active_frame and not hitbox.is_active():
 		hitbox.activate(current_attack, facing)
-	elif not is_active_phase and hitbox.is_active():
+	elif not is_active_frame and hitbox.is_active():
 		hitbox.deactivate()
 
 
@@ -538,17 +655,59 @@ func _clamp_to_bounds(point: Vector2) -> Vector2:
 
 func _update_visual() -> void:
 	visual.scale.x = facing
-	visual.rotation = _get_fall_rotation()
-	# Лёжа прямоугольник поворачивается вокруг ног; приподнимаем его, чтобы лежал на земле.
+	_sprite_shown = _update_animation()
+	var drawn_by_sprite: bool = _sprite_shown != ActorSprite.Shown.NONE
+	sprite.visible = drawn_by_sprite
+	body.visible = not drawn_by_sprite
+	facing_mark.visible = not drawn_by_sprite
+	# Падение рисует своя анимация knockdown; без неё боец (прямоугольник или запасной кадр) поворачивается.
+	visual.rotation = 0.0 if _sprite_shown == ActorSprite.Shown.FRAMES and reaction != Reaction.NONE else _get_fall_rotation()
+	# Лёжа фигура поворачивается вокруг ног; приподнимаем её, чтобы лежала на земле.
 	visual.position.y = -height - body.size.x * 0.5 * absf(sin(visual.rotation))
 	hurtbox.position.y = -height
 	hitbox.position.y = -height
-	body.color = _get_body_color()
-	visual.visible = not _is_blinking() or fmod(_blink_clock, BLINK_PERIOD * 2.0) < BLINK_PERIOD
+	var flash: Color = _get_flash()
+	_flash_material.set_shader_parameter(&"flash_color", Color(flash, 1.0))
+	_flash_material.set_shader_parameter(&"flash_amount", flash.a)
+	var hidden: bool = _is_blinking() and fmod(_blink_clock, BLINK_PERIOD * 2.0) >= BLINK_PERIOD
+	_flash_material.set_shader_parameter(&"alpha", 0.0 if hidden else 1.0)
 	_update_arm()
 	var t: float = clampf(height / shadow_fade_height, 0.0, 1.0)
 	shadow.scale = Vector2.ONE * lerpf(1.0, shadow_min_scale, t)
 	shadow.color = Color(0.0, 0.0, 0.0, lerpf(shadow_alpha, shadow_min_alpha, t))
+
+
+## Выбрать кадр спрайта: реакция → атака → поведение наследника.
+func _update_animation() -> ActorSprite.Shown:
+	if not sprite.is_ready():
+		return ActorSprite.Shown.NONE
+	match reaction:
+		Reaction.HURT:
+			return show_animation_progress(&"hurt", _reaction_time / maxf(stats.hurt_time, 0.001))
+		Reaction.KNOCKDOWN:
+			return show_animation_frame(&"knockdown", 0 if vertical_velocity > 0.0 else 1)
+		Reaction.DOWN:
+			return show_animation_frame(&"knockdown", 99)
+		Reaction.GETUP:
+			return show_animation_progress(&"getup", _reaction_time / maxf(stats.getup_time, 0.001))
+		Reaction.DEAD:
+			if _dead_on_ground:
+				return show_animation_frame(&"knockdown", 99)
+			return show_animation_frame(&"knockdown", 0 if vertical_velocity > 0.0 else 1)
+	if current_attack != null and current_attack.animation != &"":
+		# Кадр ставит _sync_attack_frame; кончилась атака — держим последний.
+		var index: int = _attack_frame if _attack_frame >= 0 else current_attack.get_frame_count() - 1
+		return show_animation_frame(current_attack.animation, index)
+	return _animate_behavior()
+
+
+## Прямоугольник хёртбокса (см. ActorStats.hurtbox_rect). Форма — своя у каждого бойца.
+func _apply_hurtbox_rect(rect: Rect2) -> void:
+	var shape_node := hurtbox.get_node("Shape") as CollisionShape2D
+	var shape := RectangleShape2D.new()
+	shape.size = rect.size
+	shape_node.shape = shape
+	shape_node.position = rect.get_center()
 
 
 func _is_blinking() -> bool:
@@ -572,21 +731,24 @@ func _get_fall_rotation() -> float:
 	return 0.0
 
 
-## «Рука»-плейсхолдер: растёт в замахе, вытянута в активное окно, убирается в recovery.
+## «Рука»-плейсхолдер (только если своей анимации атаки нет): растёт в замахе,
+## вытянута в активное окно, убирается в восстановлении.
 ## Координаты Visual совпадают с системой hitbox_rect (бок взгляда вправо, с учётом height).
 func _update_arm() -> void:
-	if current_attack == null:
+	if current_attack == null or (_sprite_shown == ActorSprite.Shown.FRAMES and reaction == Reaction.NONE):
 		arm.visible = false
 		return
 	var attack: AttackData = current_attack
+	var start: float = attack.get_active_start()
+	var end: float = attack.get_active_end()
 	var k: float = 1.0
-	if _attack_time < attack.startup:
-		k = _attack_time / attack.startup
-	elif _attack_time >= attack.get_active_end():
-		k = 1.0 - (_attack_time - attack.get_active_end()) / maxf(attack.recovery, 0.001)
+	if _attack_time < start:
+		k = _attack_time / maxf(start, 0.001)
+	elif _attack_time >= end:
+		k = 1.0 - (_attack_time - end) / maxf(attack.get_total_time() - end, 0.001)
 	k = clampf(k, 0.0, 1.0)
 	var rect: Rect2 = attack.hitbox_rect
-	var base_x: float = body.position.x + body.size.x
+	var base_x: float = stats.hurtbox_rect.end.x if is_sprite_shown() else body.position.x + body.size.x
 	var full_length: float = maxf(rect.end.x - base_x, ARM_MIN_LENGTH)
 	arm.visible = k > 0.0
 	arm.position = Vector2(base_x, rect.get_center().y - ARM_THICKNESS * 0.5)

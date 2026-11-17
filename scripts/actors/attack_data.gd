@@ -2,8 +2,13 @@ class_name AttackData
 extends Resource
 ## Параметры одной атаки. Значения задаются в data/attacks/**/*.tres.
 ##
-## Тайминги идут подряд: startup (замах) → active (хитбокс включён) → recovery
-## (возврат в стойку).
+## Атака синхронизирована с анимацией бойца: animation — имя анимации в SpriteFrames
+## (jab, cross… у героини, attack у копов), frame_durations — сколько секунд держится
+## каждый кадр (замах длиннее, удар короткий), active_frames — номера кадров (с 0),
+## на которых включён хитбокс. Фазы считаются по кадрам: до первого активного кадра —
+## замах (STARTUP), активные — ACTIVE, после — восстановление (RECOVERY).
+## Хитбокс включает Actor по сигналу frame_changed спрайта (без спрайта — по тому же
+## таймлайну напрямую).
 ##
 ## hitbox_rect — прямоугольник удара в координатах бойца, смотрящего вправо:
 ## начало координат — точка на земле под ногами, y вверх отрицательный.
@@ -14,12 +19,12 @@ extends Resource
 @export var name: String = ""
 ## Урон по здоровью цели.
 @export var damage: int = 10
-## Замах до включения хитбокса, с.
-@export var startup: float = 0.05
-## Сколько хитбокс включён, с.
-@export var active: float = 0.06
-## Возврат в стойку после активного окна, с.
-@export var recovery: float = 0.15
+## Анимация атаки в SpriteFrames бойца.
+@export var animation: StringName = &""
+## Длительность каждого кадра анимации, с.
+@export var frame_durations: PackedFloat32Array = PackedFloat32Array([0.05, 0.06, 0.15])
+## Кадры (с 0), на которых хитбокс включён.
+@export var active_frames: PackedInt32Array = PackedInt32Array([1])
 ## Зона удара относительно бойца (см. описание класса).
 @export var hitbox_rect: Rect2 = Rect2(20.0, -150.0, 70.0, 30.0)
 ## Скорость отброса цели, px/с: при HURT затухает за время оглушения,
@@ -35,11 +40,48 @@ extends Resource
 @export var lunge_speed: float = 0.0
 
 
-## Момент конца активного окна от начала атаки, с.
+func get_frame_count() -> int:
+	return frame_durations.size()
+
+
+## Кадр атаки в момент t от её начала; -1 — атака кончилась.
+func get_frame_at(t: float) -> int:
+	var end: float = 0.0
+	for i in frame_durations.size():
+		end += frame_durations[i]
+		if t < end:
+			return i
+	return -1
+
+
+func is_active_frame(index: int) -> bool:
+	return active_frames.has(index)
+
+
+## Момент начала первого активного кадра от начала атаки, с.
+func get_active_start() -> float:
+	var t: float = 0.0
+	for i in frame_durations.size():
+		if is_active_frame(i):
+			return t
+		t += frame_durations[i]
+	return t
+
+
+## Момент конца последнего активного кадра от начала атаки, с.
 func get_active_end() -> float:
-	return startup + active
+	var t: float = 0.0
+	var end: float = 0.0
+	for i in frame_durations.size():
+		t += frame_durations[i]
+		if is_active_frame(i):
+			end = t
+	return end
 
 
 ## Полная длительность атаки, с.
 func get_total_time() -> float:
-	return startup + active + recovery
+	var t: float = 0.0
+	for d in frame_durations:
+		t += d
+	return t

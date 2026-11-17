@@ -58,6 +58,7 @@ stretch `canvas_items`, aspect `keep`, фильтр текстур Linear. Гл�
 
 ### Папки
 - `scenes/{main,actors,player,enemies,boss,level,props,ui,fx}` — сцены (`props` — предметы и бонусы).
+- `assets/shaders/` — шейдеры (`actor_flash.gdshader` — вспышка и мигание бойцов).
 - `scripts/{core,actors,ai,ui,level,props}` — скрипты (`ai` — AttackDirector; `level` — уровень, данные
   уровня, улица, камеры, параллакс, спавнер, директор волн, отладочный оверлей; `props` — предметы и бонусы;
   `ui` — полоска здоровья, HUD уровня).
@@ -88,14 +89,14 @@ stretch `canvas_items`, aspect `keep`, фильтр текстур Linear. Гл�
 | debug_level_1..5 | F2–F6 (только при включённом Debug) | — |
 
 ## Плейсхолдеры
-Пока нет арта, бойцы — цветные прямоугольники ростом ~180 px:
+Бойцы рисуются спрайтами (этап 7). Цветной прямоугольник ростом ~180 px остаётся запасным видом —
+на состояние, для которого нет ни анимации, ни замены (см. «Арт в игре»):
 героиня — розовая, патрульный — синий, велопатруль — голубой, ОМОН — тёмно-серый, босс — чёрный.
 Когда включён Debug, на каждом бойце — подпись с текущим состоянием автомата и HP,
 хёртбокс (зелёный), хитбокс в активное окно (красный) и полоса допуска по глубине под ногами.
 Над врагом — ромб: залитый жёлтый — у него токен атаки, контур — ждёт токена; у бессмертной героини — GOD.
-Пока нет анимаций, во время атаки из прямоугольника вытягивается «рука» (`Visual/Arm`) к краю хитбокса.
-Вспышка при попадании — подмена `body.color` на белый, при блоке щитом — на синий, замах врага —
-мигание жёлтым (хук `Actor._get_body_color()`; со спрайтами заменить шейдером).
+Если у атаки нет своей анимации, из бойца вытягивается «рука» (`Visual/Arm`) к краю хитбокса.
+Вспышки — общий шейдер (см. «Арт в игре»): белая при попадании, синяя при блоке щитом, замах врага мигает жёлтым.
 
 ## Правила кода
 - GDScript со статической типизацией, snake_case, комментарии на русском.
@@ -108,7 +109,7 @@ stretch `canvas_items`, aspect `keep`, фильтр текстур Linear. Гл�
 
 ### Бойцы и уровень (этап 2)
 - `Actor` (`scripts/actors/actor.gd`, сцена `scenes/actors/actor.tscn`): Shadow (Polygon2D-эллипс) +
-  Visual (смещение `-height`, `scale.x = facing`) → Body (ColorRect, опора внизу по центру) + FacingMark + Arm;
+  Visual (смещение `-height`, `scale.x = facing`) → Body (ColorRect, опора внизу по центру) + Sprite (ActorSprite) + FacingMark + Arm;
   Hurtbox и Hitbox (Area2D, смещение `-height`).
   Наследник переопределяет `_update_behavior()` и задаёт `velocity` (скорость по земле);
   база двигает с ограничением `walk_bounds`, считает гравитацию, вызывает `_on_landed()` / сигнал `landed`.
@@ -122,12 +123,13 @@ stretch `canvas_items`, aspect `keep`, фильтр текстур Linear. Гл�
   `StreetCamera` — слежение только по x; `StreetCamera.get_visible_world_rect(viewport)` — видимая часть мира.
   `StreetDebugOverlay` — отрисовка по F1.
 ### Боёвка (этап 3)
-- `AttackData` (`scripts/actors/attack_data.gd`): `name`, `damage`, `startup`/`active`/`recovery` (с),
-  `hitbox_rect`, `knockback` (скорость отброса, px/с), `knockdown`, `hitstop`.
+- `AttackData` (`scripts/actors/attack_data.gd`): `name`, `damage`, `animation`, `frame_durations` (с на кадр),
+  `active_frames` (номера кадров с 0, на которых включён хитбокс), `hitbox_rect`, `knockback` (скорость отброса, px/с),
+  `knockdown`, `hitstop`. Фазы STARTUP/ACTIVE/RECOVERY считаются по кадрам (`get_active_start/end()`, `get_total_time()`).
   `hitbox_rect` — в координатах бойца, смотрящего вправо: (0,0) — точка на земле, y вверх отрицательный,
   уже с учётом `height` (в прыжке поднимается вместе с бойцом), при `facing = -1` отражается по x.
 - `Hitbox` / `Hurtbox` (`scripts/actors/`, узлы в `actor.tscn`, у каждого дочерний `Shape`).
-  Hitbox включается только в активное окно; проверку `collect_hits()` вызывает сам Actor в конце
+  Hitbox включается только на активных кадрах (по `frame_changed` спрайта); проверку `collect_hits()` вызывает сам Actor в конце
   `_physics_process` (попадание видно со следующего физического кадра после включения).
 - `Actor`: двухуровневый автомат. Верхний уровень — реакции `Reaction` (NONE / HURT / KNOCKDOWN /
   DOWN / GETUP / DEAD), живут в базе; пока реакция не NONE, `_update_behavior()` наследника не вызывается.
@@ -144,10 +146,10 @@ stretch `canvas_items`, aspect `keep`, фильтр текстур Linear. Гл�
   - DEAD: падение, мигание `death_blink_time`, затем `_on_death_finished()`: по умолчанию `queue_free()`,
     `Player` испускает `Events.player_died` и остаётся лежать.
   - Атаки: `start_attack(attack)` / `stop_attack()` / `get_attack_phase()` / `attack_connected`;
-    база ведёт фазы, хитбокс, урон и «руку». Хуки: `_read_controls()` (каждый кадр, даже в хитстопе),
+    база ведёт кадры атаки, хитбокс, урон и «руку». Хуки: `_read_controls()` (каждый кадр, даже в хитстопе),
     `_on_hit_taken()`, `_on_death_finished()`. Подпись отладки — `get_display_state()`.
   - Сигналы Actor: `health_changed(current, maximum)`, `died`, `landed`.
-- `Player`: IDLE / WALK / JUMP / JUMP_ATTACK / LAND / ATTACK. `combo` — массив `AttackData`
+- `Player`: IDLE / WALK / JUMP / JUMP_ATTACK / LAND / ATTACK / PICKUP / VICTORY. `combo` — массив `AttackData`
   (джеб → кросс → нога → апперкот), `jump_attack` — удар ногой в прыжке (один за прыжок).
   Серия продолжается, только если удар попал; буфер `attack_buffer_time`, следующий удар — с конца
   активного окна; `combo_reset_time` без нажатий сбрасывает серию. Разворот — только в начале удара.
@@ -158,8 +160,10 @@ stretch `canvas_items`, aspect `keep`, фильтр текстур Linear. Гл�
 
 ### Как добавить атаку
 1. Создать `data/attacks/<боец>/<имя>.tres` с `script = attack_data.gd` (проще всего скопировать
-   соседний файл) и задать числа. `hitbox_rect` подбирать с включённым F1: красный прямоугольник
-   рисуется в активное окно.
+   соседний файл) и задать числа: `animation` — имя анимации в SpriteFrames бойца, `frame_durations` —
+   по числу на кадр (замах длиннее, удар короткий), `active_frames` — кадры удара (обычно `PackedInt32Array(1)`).
+   `hitbox_rect` подбирать с включённым F1 по кулаку/стопе на активном кадре (красный прямоугольник
+   рисуется, пока хитбокс включён; замеры кадров — по альфе png в `assets/sprites/<персонаж>/`, ×0.5 от опоры).
 2. Подключить в сцене бойца: для героини — добавить в массив `combo` или поставить в `jump_attack`
    в `scenes/player/player.tscn` (ext_resource + элемент `Array[ExtResource(...)]`).
    Для нового бойца — экспортное поле со ссылкой на `AttackData` и вызов `start_attack(attack)`
@@ -304,7 +308,7 @@ stretch `canvas_items`, aspect `keep`, фильтр текстур Linear. Гл�
   (только перемещает; занятое имя уходит в `_alternates`; дописывает `manifest.csv`) →
   для фонов `python3 tools/process_backgrounds.py [уровень]` → `godot --headless --import --path .`.
   Если поменялась линия пола main_a — `python3 tools/make_levels.py`. `.tres` править не нужно: пути уже прописаны.
-- Спрайты персонажей нарезаны (этап 6.1, см. «Арт»), но в игру ещё не подключены — бойцы остаются прямоугольниками.
+- Спрайты персонажей нарезаны (этап 6.1, см. «Арт») и подключены к бойцам (этап 7, см. «Арт в игре»).
 
 ## Арт (этап 6.1): нарезка спрайтов
 `python3 tools/slice_sheets.py [персонаж ...] [--no-godot]` — листы `art_source/<персонаж>/<лист>.png`
@@ -337,6 +341,37 @@ stretch `canvas_items`, aspect `keep`, фильтр текстур Linear. Гл�
   у копов и босса только E1 (`walk`); масштаб врагов пока по ходьбе — после появления E2 перезапустить скрипт.
 - Новый лист: положить через `_inbox` (см. «Ассеты») → `python3 tools/slice_sheets.py <персонаж>` → посмотреть превью
   и отчёт → при необходимости `offsets` / `frame_size` в конфиге и перезапуск.
+
+## Арт в игре (этап 7)
+- `ActorStats` (группа «Спрайт»): `sprite_frames_path` (SpriteFrames из slice_sheets), `animation_fallbacks`
+  (`"анимация": "другая:кадр"` — стоп-кадр вместо недостающей), `walk_stride` (px пути за цикл walk);
+  группа «Тело»: `hurtbox_rect` (в координатах бойца, смотрящего вправо), `shadow_radius`; «Победа»: `victory_time`.
+- `ActorSprite` (`scripts/actors/actor_sprite.gd`, узел `Visual/Sprite`): грузит SpriteFrames, масштаб и смещение — из
+  метаданных `.tres` (`display_scale`, `sprite_offset`). **Масштаб всех персонажей — одно место:** `display_scale`
+  в `art_source/animations.json` → `python3 tools/slice_sheets.py`. `show_frame()` / `play_loop()` возвращают
+  `Shown`: FRAMES (своя анимация), FALLBACK (стоп-кадр замены), NONE (рисуется прямоугольник Body).
+  О каждой недостающей анимации — одно предупреждение `Спрайт <персонаж>: нет анимации …` за запуск.
+- Состояния → анимации (имена как в `animations.json`). База (`Actor._update_animation`): HURT — `hurt` на `hurt_time`;
+  KNOCKDOWN — `knockdown` кадр 0 на взлёте, 1 на спуске; DOWN и мёртвый на земле — последний кадр; GETUP — `getup`
+  на `getup_time` (у копов — E3 6,5,4, обратная knockdown); атака — кадры `AttackData`. Поворот Visual при падении —
+  только без своей анимации knockdown. Поведение — `_animate_behavior()` наследника: Player — idle, walk, jump
+  (0 — отталкивание `JUMP_TAKEOFF_TIME`, 1 — весь полёт, 2 — LAND), pickup (замена `uppercut:0`), victory;
+  Enemy — walk на ходу, idle стоя. Помощники: `play_animation`, `play_walk_animation` (скорость = движение /
+  `walk_stride`, пятясь — задом наперёд, не меньше 0.4), `show_animation_frame/progress/once`.
+- Атаки: `Actor._sync_attack_frame()` ведёт кадр по времени атаки и ставит его на спрайт → `frame_changed` →
+  `_apply_attack_frame()` включает/выключает Hitbox. Нет своей анимации — тот же обработчик вызывается напрямую.
+  Хитстоп: время атаки не идёт, зацикленные анимации на паузе.
+- Шейдер `assets/shaders/actor_flash.gdshader` (`flash_color`, `flash_amount`, `alpha`): свой ShaderMaterial на `Visual`,
+  дети берут его через `use_parent_material` (`Actor.add_to_flash_material(node)` для узлов, добавленных кодом —
+  щит, картинка предмета). Хук `Actor._get_flash() -> Color` (rgb — цвет, a — сила): попадание белое 0.85, блок синий
+  0.75 (на ОМОНе), замах врага жёлтый 0.6 (Enemy). Неуязвимость и смерть мигают через `alpha`.
+- `Player` VICTORY: по `Events.segment_cleared` (снят замок, в т.ч. финальная арена); если героиня бьёт или в воздухе —
+  ждёт до 1.5 с, пока освободится; движение/удар/прыжок прерывают после 0.3 с.
+- Тела по спрайтам (×0.5 от опоры): героиня хёртбокс 52x182, тень 42x12; patrol 52x180; bike 44x180; riot 112x200
+  (вместе со щитом), тень 60x16. Полоска здоровья врага и подпись F1 — над верхом хёртбокса.
+- Пока у копов только `walk`: в `data/enemies/*.tres` замены idle/attack/hurt/knockdown/getup → `walk:0`
+  (атака — с «рукой» и жёлтым замахом, падение — повёрнутым кадром). Появятся листы E2/E3 → `slice_sheets.py` —
+  анимации подхватятся сами, замены можно удалить; `hitbox_rect` атак копов подогнать по кадру удара.
 
 ## Проверка
 Аргументы для тестов: `-- --autoplay` (бот подходит к ближайшей цели на экране, бьёт серией
@@ -379,6 +414,12 @@ godot --headless --path . --quit-after 300
   `process_backgrounds.py` (ключ, масштаб, швы, выравнивание пола, нарезка листов), `make_levels.py`,
   фоны тюремного корпуса в игре, цепочка уровней с финальной волной и переходом, F2–F6,
   картинки для предметов и бонусов (ждут арта), сцена снимков фонов.
+- [x] Этап 7 — арт в игре: ActorSprite (SpriteFrames, масштаб из метаданных, замены недостающих анимаций
+  стоп-кадром, предупреждение один раз), анимации реакций и поведения, ходьба по скорости, прыжок по кадрам,
+  удары по кадрам (`frame_durations` / `active_frames`, хитбокс по `frame_changed`, тайминги прежние),
+  хёртбоксы/хитбоксы/тени по спрайтам, общий шейдер вспышки и мигания, VICTORY героини при снятии замка.
+  Не хватает: копам и боссу — E2 (idle, attack), E3 (hurt, knockdown, getup); боссу — B1, B2; героине — pickup;
+  босса-бойца в игре ещё нет. Фоны есть только у cellblock.
 - [x] Этап 6.1 — конвейер нарезки спрайтов: `slice_sheets.py` + `imgutil.py` (общий хромакей и поиск фигур с
   `process_backgrounds.py`), `art_source/animations.json`, кадры и SpriteFrames героини (12 анимаций) и ходьба копов
   и босса, превью-сетки, GIF и отчёт.

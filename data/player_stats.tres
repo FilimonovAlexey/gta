@@ -9,6 +9,13 @@ walk_speed_x = 280.0
 walk_speed_y = 168.0
 jump_velocity = 600.0
 gravity = 2000.0
+sprite_frames_path = "res://assets/sprites/heroine/heroine.tres"
+animation_fallbacks = {
+"pickup": "uppercut:0"
+}
+walk_stride = 170.0
+hurtbox_rect = Rect2(-26, -182, 52, 182)
+shadow_radius = Vector2(42, 12)
 land_time = 0.1
 hurt_time = 0.3
 knockdown_launch_velocity = 450.0
@@ -20,3 +27,4 @@ hit_chain_window = 0.5
 hits_to_knockdown = 3
 attack_buffer_time = 0.15
 combo_reset_time = 0.4
+victory_time = 1.0

@@ -11,6 +11,17 @@ walk_speed_x = 160.0
 walk_speed_y = 100.0
 jump_velocity = 0.0
 gravity = 2000.0
+sprite_frames_path = "res://assets/sprites/riot/riot.tres"
+animation_fallbacks = {
+"attack": "walk:0",
+"getup": "walk:0",
+"hurt": "walk:0",
+"idle": "walk:0",
+"knockdown": "walk:0"
+}
+walk_stride = 190.0
+hurtbox_rect = Rect2(-56, -200, 112, 200)
+shadow_radius = Vector2(60, 16)
 hurt_time = 0.3
 knockdown_launch_velocity = 400.0
 down_time = 1.0
