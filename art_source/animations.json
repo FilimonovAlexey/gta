@@ -1,0 +1,98 @@
+{
+  "_comment": "Конфиг tools/slice_sheets.py. Листы art_source/<персонаж>/<лист>.png: 1536x1024, сетка 3x2, кадры 1..6 слева направо, сверху вниз. target_height — высота фигуры стойки в px кадра (в игре спрайт со scale 0.5). frame_size — [ширина, высота] кадра; опора (низ фигуры, центр торса) — в точке [ширина/2, высота - baseline_margin]. scale_sheet — лист, по средней высоте фигур которого считается масштаб (нет листа — scale_fallback). offsets — ручной сдвиг кадра в px кадра: \"<лист>:<номер>\": [dx, dy]. free_height — у анимации высота фигуры законно отличается от стойки (присед, падение), отчёт её не проверяет.",
+  "defaults": {
+    "fps": 12,
+    "loop": false,
+    "display_scale": 0.5,
+    "baseline_margin": 8,
+    "torso_band": [0.35, 0.65],
+    "height_tolerance": 0.25,
+    "key": "green"
+  },
+  "characters": {
+    "heroine": {
+      "target_height": 360,
+      "frame_size": [640, 448],
+      "scale_sheet": "H1",
+      "offsets": {},
+      "animations": [
+        { "name": "idle", "sheet": "H1", "frames": [1, 2, 3, 4, 5, 6], "loop": true, "fps": 8 },
+        { "name": "walk", "sheet": "H2", "frames": [1, 2, 3, 4, 5, 6], "loop": true, "fps": 10 },
+        { "name": "jab", "sheet": "H3", "frames": [1, 2, 3] },
+        { "name": "cross", "sheet": "H3", "frames": [4, 5, 6] },
+        { "name": "uppercut", "sheet": "H4", "frames": [1, 2, 3] },
+        { "name": "kick", "sheet": "H4", "frames": [4, 5, 6] },
+        { "name": "jump", "sheet": "H5", "frames": [1, 2, 3], "free_height": true },
+        { "name": "jump_kick", "sheet": "H5", "frames": [4, 5, 6], "free_height": true },
+        { "name": "hurt", "sheet": "H6", "frames": [1, 2, 3] },
+        { "name": "knockdown", "sheet": "H6", "frames": [4, 5, 6], "free_height": true },
+        { "name": "getup", "sheet": "H7", "frames": [1, 2, 3], "free_height": true },
+        { "name": "victory", "sheet": "H7", "frames": [4, 5, 6] }
+      ]
+    },
+    "patrol": {
+      "target_height": 360,
+      "frame_size": [576, 448],
+      "scale_sheet": "E2",
+      "scale_fallback": "E1",
+      "offsets": {},
+      "animations": [
+        { "name": "idle", "sheet": "E2", "frames": [1, 2, 3], "loop": true, "fps": 8 },
+        { "name": "walk", "sheet": "E1", "frames": [1, 2, 3, 4, 5, 6], "loop": true, "fps": 10 },
+        { "name": "attack", "sheet": "E2", "frames": [4, 5, 6] },
+        { "name": "hurt", "sheet": "E3", "frames": [1, 2, 3] },
+        { "name": "knockdown", "sheet": "E3", "frames": [4, 5, 6], "free_height": true },
+        { "name": "getup", "sheet": "E3", "frames": [6, 5, 4], "free_height": true }
+      ]
+    },
+    "bike": {
+      "target_height": 360,
+      "frame_size": [576, 448],
+      "scale_sheet": "E2",
+      "scale_fallback": "E1",
+      "offsets": {},
+      "animations": [
+        { "name": "idle", "sheet": "E2", "frames": [1, 2, 3], "loop": true, "fps": 8 },
+        { "name": "walk", "sheet": "E1", "frames": [1, 2, 3, 4, 5, 6], "loop": true, "fps": 10 },
+        { "name": "attack", "sheet": "E2", "frames": [4, 5, 6] },
+        { "name": "hurt", "sheet": "E3", "frames": [1, 2, 3] },
+        { "name": "knockdown", "sheet": "E3", "frames": [4, 5, 6], "free_height": true },
+        { "name": "getup", "sheet": "E3", "frames": [6, 5, 4], "free_height": true }
+      ]
+    },
+    "riot": {
+      "target_height": 400,
+      "frame_size": [576, 496],
+      "scale_sheet": "E2",
+      "scale_fallback": "E1",
+      "offsets": {},
+      "animations": [
+        { "name": "idle", "sheet": "E2", "frames": [1, 2, 3], "loop": true, "fps": 8 },
+        { "name": "walk", "sheet": "E1", "frames": [1, 2, 3, 4, 5, 6], "loop": true, "fps": 10 },
+        { "name": "attack", "sheet": "E2", "frames": [4, 5, 6] },
+        { "name": "hurt", "sheet": "E3", "frames": [1, 2, 3] },
+        { "name": "knockdown", "sheet": "E3", "frames": [4, 5, 6], "free_height": true },
+        { "name": "getup", "sheet": "E3", "frames": [6, 5, 4], "free_height": true }
+      ]
+    },
+    "boss": {
+      "target_height": 440,
+      "frame_size": [704, 544],
+      "scale_sheet": "E2",
+      "scale_fallback": "E1",
+      "offsets": {},
+      "animations": [
+        { "name": "idle", "sheet": "E2", "frames": [1, 2, 3], "loop": true, "fps": 8 },
+        { "name": "walk", "sheet": "E1", "frames": [1, 2, 3, 4, 5, 6], "loop": true, "fps": 10 },
+        { "name": "attack", "sheet": "E2", "frames": [4, 5, 6] },
+        { "name": "hurt", "sheet": "E3", "frames": [1, 2, 3] },
+        { "name": "knockdown", "sheet": "E3", "frames": [4, 5, 6], "free_height": true },
+        { "name": "getup", "sheet": "E3", "frames": [6, 5, 4], "free_height": true },
+        { "name": "charge", "sheet": "B1", "frames": [1, 2, 3] },
+        { "name": "slam", "sheet": "B1", "frames": [4, 5, 6] },
+        { "name": "rage", "sheet": "B2", "frames": [1, 2, 3] },
+        { "name": "defeat", "sheet": "B2", "frames": [4, 5, 6], "free_height": true }
+      ]
+    }
+  }
+}

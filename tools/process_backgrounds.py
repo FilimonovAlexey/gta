@@ -6,14 +6,14 @@
 Что делает с каждым файлом art_source/backgrounds/<уровень>/:
 - sky, far, mid, main_a/b/c — слои: масштаб по высоте до 720 px; если настоящей альфы нет, а фон
   однотонный ключевой (пурпурный #FF00FF или зелёный #00FF00, определяется по краям) — ключ → прозрачность
-  с чисткой каймы; почти непрозрачная альфа (генератор любит 252–253) дотягивается до 255;
+  (imgutil.chroma_key: HSV с допуском, мягкий край 1–2 px, despill); почти непрозрачная альфа (генератор любит 252–253) дотягивается до 255;
   если левый и правый края заметно различаются — шов сглаживается переходом на SEAM_WIDTH px
   (ширина уменьшается на SEAM_WIDTH, картинка повторяется без стыка).
 - main_b/c выравниваются по высоте пола main_a (линия пола ищется снизу вверх по резкой смене цвета),
   чтобы при чередовании вариантов пол не прыгал. Найденную линию пола скрипт печатает — от неё
   считается walk_top уровня.
 - arena — непрозрачный кадр: масштаб «с обрезкой» до 1280x720.
-- props.png — лист из 6 предметов декора: ключ → альфа, поиск фигур по альфе, каждый — props_01..06.png,
+- props.png — лист из 6 предметов декора: ключ → альфа, поиск фигур по альфе (imgutil.find_figures), каждый — props_01..06.png,
   обрезан по фигуре (точка опоры — низ по центру картинки). Порядок — по строкам слева направо.
 Общие: art_source/backgrounds/title.png → assets/backgrounds/title.png (1280x720),
 art_source/backgrounds/breakables.png → assets/backgrounds/breakables/<имя>.png (порядок BREAKABLE_NAMES).
@@ -21,10 +21,11 @@ art_source/backgrounds/breakables.png → assets/backgrounds/breakables/<имя>
 import json
 import os
 import sys
-from collections import deque
 
 import numpy as np
-from PIL import Image, ImageFilter
+
+from imgutil import (chroma_key, detect_key, extract, find_figures, has_real_alpha, load, normalize_alpha,
+                     resize, save)
 
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 SRC = os.path.join(ROOT, "art_source", "backgrounds")
@@ -41,73 +42,9 @@ BREAKABLE_NAMES = ["trash_can", "trash_can_broken", "crate", "crate_broken", "ho
 BREAKABLE_MAX_HEIGHT = 160
 ## Предметы декора: масштаб относительно высоты листа (лист 3x2 высотой H → H px = 720).
 PROPS_SHEET_TO_SCREEN = 1.0
-KEYS = {"magenta": (255, 0, 255), "green": (0, 255, 0)}
 
 
-# --- Общие операции ------------------------------------------------------------
-
-def load(path: str) -> np.ndarray:
-    return np.array(Image.open(path).convert("RGBA")).astype(np.float32)
-
-
-def save(a: np.ndarray, path: str) -> None:
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    Image.fromarray(np.clip(a, 0, 255).astype(np.uint8), "RGBA").save(path, optimize=True)
-
-
-def has_real_alpha(a: np.ndarray) -> bool:
-    return float((a[..., 3] < 200).mean()) > 0.002
-
-
-def detect_key(a: np.ndarray) -> str | None:
-    """Ключевой цвет по рамке картинки шириной 4 px: magenta, green или None."""
-    border = np.concatenate([a[:4].reshape(-1, 4), a[-4:].reshape(-1, 4), a[:, :4].reshape(-1, 4), a[:, -4:].reshape(-1, 4)])
-    r, g, b = np.median(border[:, 0]), np.median(border[:, 1]), np.median(border[:, 2])
-    if r > 180 and b > 180 and g < 90:
-        return "magenta"
-    if g > 180 and r < 90 and b < 90:
-        return "green"
-    return None
-
-
-def key_strength(a: np.ndarray, key: str) -> np.ndarray:
-    r, g, b = a[..., 0], a[..., 1], a[..., 2]
-    if key == "green":
-        return g - np.maximum(r, b)
-    return np.minimum(r, b) - g
-
-
-def key_to_alpha(a: np.ndarray, key: str) -> np.ndarray:
-    """Мягкий ключ → альфа, сжатие альфы на 1 px (кайма) и удаление цветного ореола у краёв."""
-    a = a.copy()
-    s = key_strength(a, key)
-    alpha = 1.0 - np.clip((s - 40.0) / 100.0, 0.0, 1.0)
-    alpha_img = Image.fromarray((alpha * 255).astype(np.uint8))
-    eroded = np.array(alpha_img.filter(ImageFilter.MinFilter(3))).astype(np.float32) / 255.0
-    near_edge = np.array(alpha_img.filter(ImageFilter.MinFilter(7))) < 250
-    alpha = np.where(near_edge, eroded, alpha)
-    # Ореол: у пикселей рядом с прозрачным убрать примесь ключевого цвета.
-    r, g, b = a[..., 0], a[..., 1], a[..., 2]
-    if key == "green":
-        g_fixed = np.minimum(g, np.maximum(r, b))
-        a[..., 1] = np.where(near_edge, g_fixed, g)
-    else:
-        spill = np.clip(np.minimum(r, b) - g, 0, None)
-        a[..., 0] = np.where(near_edge, r - spill, r)
-        a[..., 2] = np.where(near_edge, b - spill, b)
-    a[..., 3] = alpha * 255.0
-    return a
-
-
-def normalize_alpha(a: np.ndarray) -> np.ndarray:
-    """Почти непрозрачная альфа (максимум 240–254) → растянуть до 255."""
-    top = float(np.percentile(a[..., 3], 99))
-    if 240.0 <= top < 255.0:
-        a = a.copy()
-        a[..., 3] = np.clip(a[..., 3] * 255.0 / top, 0, 255)
-        a[..., 3] = np.where(a[..., 3] > 250, 255, a[..., 3])
-    return a
-
+# --- Общие операции (остальное — в imgutil) -------------------------------------
 
 def prepare(a: np.ndarray, name: str) -> np.ndarray:
     """Альфа: настоящая — нормализовать, иначе ключ (если найден)."""
@@ -116,17 +53,10 @@ def prepare(a: np.ndarray, name: str) -> np.ndarray:
     key = detect_key(a)
     if key is not None:
         print(f"    {name}: ключ {key} → прозрачность")
-        return key_to_alpha(a, key)
+        return chroma_key(a, key)
     a = a.copy()
     a[..., 3] = 255
     return a
-
-
-def resize(a: np.ndarray, w: int, h: int) -> np.ndarray:
-    # Через премультипликацию, чтобы прозрачные пиксели не давали тёмную кайму.
-    img = Image.fromarray(np.clip(a, 0, 255).astype(np.uint8), "RGBA").convert("RGBa")
-    img = img.resize((w, h), Image.LANCZOS).convert("RGBA")
-    return np.array(img).astype(np.float32)
 
 
 def scale_to_height(a: np.ndarray, h: int = SCREEN_H) -> np.ndarray:
@@ -181,54 +111,12 @@ def shift_vertical(a: np.ndarray, dy: int) -> np.ndarray:
     return out
 
 
-# --- Поиск фигур на листе --------------------------------------------------------
-
-def find_figures(alpha: np.ndarray, count: int, step: int = 4) -> list[tuple[int, int, int, int]]:
-    """Прямоугольники count самых крупных фигур по альфе (x0, y0, x1, y1), по строкам слева направо."""
-    h, w = alpha.shape
-    small = Image.fromarray((alpha > 128).astype(np.uint8) * 255).resize((w // step, h // step), Image.BOX)
-    mask = np.array(small.filter(ImageFilter.MaxFilter(5))) > 40
-    sh, sw = mask.shape
-    seen = np.zeros_like(mask, dtype=bool)
-    blobs = []
-    for y in range(sh):
-        for x in range(sw):
-            if not mask[y, x] or seen[y, x]:
-                continue
-            q = deque([(y, x)])
-            seen[y, x] = True
-            x0 = x1 = x
-            y0 = y1 = y
-            n = 0
-            while q:
-                cy, cx = q.popleft()
-                n += 1
-                x0, x1, y0, y1 = min(x0, cx), max(x1, cx), min(y0, cy), max(y1, cy)
-                for ny, nx in ((cy + 1, cx), (cy - 1, cx), (cy, cx + 1), (cy, cx - 1)):
-                    if 0 <= ny < sh and 0 <= nx < sw and mask[ny, nx] and not seen[ny, nx]:
-                        seen[ny, nx] = True
-                        q.append((ny, nx))
-            blobs.append((n, x0 * step, y0 * step, (x1 + 1) * step, (y1 + 1) * step))
-    blobs.sort(reverse=True)
-    boxes = [b[1:] for b in blobs[:count]]
-    if len(blobs) != count:
-        print(f"    внимание: найдено фигур {len(blobs)}, ожидалось {count}")
-    # Уточнить рамку по настоящей альфе внутри грубого прямоугольника.
-    tight = []
-    for x0, y0, x1, y1 in boxes:
-        x0, y0, x1, y1 = max(0, x0 - 8), max(0, y0 - 8), min(w, x1 + 8), min(h, y1 + 8)
-        sub = alpha[y0:y1, x0:x1] > 8
-        ys = np.where(sub.any(1))[0]
-        xs = np.where(sub.any(0))[0]
-        tight.append((x0 + xs.min(), y0 + ys.min(), x0 + xs.max() + 1, y0 + ys.max() + 1))
-    row_h = h / 2
-    tight.sort(key=lambda b: (int(((b[1] + b[3]) / 2) // row_h), b[0]))
-    return tight
-
+# --- Нарезка листа ------------------------------------------------------------------
 
 def cut_figures(a: np.ndarray, names: list[str], out_dir: str, scale: float, pad: int = 2) -> None:
-    for (x0, y0, x1, y1), name in zip(find_figures(a[..., 3], len(names)), names):
-        crop = a[y0:y1, x0:x1]
+    figures = find_figures(a[..., 3], len(names), rows=2, name=out_dir, strict=False)
+    for fig, name in zip(figures, names):
+        crop = extract(a, fig)
         crop = resize(crop, max(1, round(crop.shape[1] * scale)), max(1, round(crop.shape[0] * scale)))
         # Прозрачные поля по бокам и сверху; низ картинки = низ фигуры (точка опоры — низ по центру).
         out = np.zeros((crop.shape[0] + pad, crop.shape[1] + pad * 2, 4), np.float32)
@@ -291,8 +179,8 @@ def process_common() -> None:
     if os.path.exists(sheet):
         print("[breakables]")
         a = prepare(load(sheet), "breakables")
-        boxes = find_figures(a[..., 3], len(BREAKABLE_NAMES))
-        tallest = max(b[3] - b[1] for b in boxes[:4]) if len(boxes) >= 4 else max(b[3] - b[1] for b in boxes)
+        figures = find_figures(a[..., 3], len(BREAKABLE_NAMES), rows=2, name="breakables.png", strict=False)
+        tallest = max(f.height for f in figures[:4])
         cut_figures(a, BREAKABLE_NAMES, os.path.join(DST, "breakables"), BREAKABLE_MAX_HEIGHT / tallest)
 
 

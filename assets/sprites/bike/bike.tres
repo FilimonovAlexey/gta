@@ -1,0 +1,38 @@
+[gd_resource type="SpriteFrames" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/sprites/bike/walk_01.png" id="1_6n3rx"]
+[ext_resource type="Texture2D" path="res://assets/sprites/bike/walk_02.png" id="2_3il8b"]
+[ext_resource type="Texture2D" path="res://assets/sprites/bike/walk_03.png" id="3_oj2ty"]
+[ext_resource type="Texture2D" path="res://assets/sprites/bike/walk_04.png" id="4_0pnmy"]
+[ext_resource type="Texture2D" path="res://assets/sprites/bike/walk_05.png" id="5_pge4s"]
+[ext_resource type="Texture2D" path="res://assets/sprites/bike/walk_06.png" id="6_kea4j"]
+
+[resource]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("1_6n3rx")
+}, {
+"duration": 1.0,
+"texture": ExtResource("2_3il8b")
+}, {
+"duration": 1.0,
+"texture": ExtResource("3_oj2ty")
+}, {
+"duration": 1.0,
+"texture": ExtResource("4_0pnmy")
+}, {
+"duration": 1.0,
+"texture": ExtResource("5_pge4s")
+}, {
+"duration": 1.0,
+"texture": ExtResource("6_kea4j")
+}],
+"loop": 1,
+"name": &"walk",
+"speed": 10.0
+}]
+metadata/frame_size = Vector2(576, 448)
+metadata/pivot = Vector2(288, 440)
+metadata/display_scale = 0.5
+metadata/sprite_offset = Vector2(0, -216)

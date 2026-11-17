@@ -1,0 +1,38 @@
+[gd_resource type="SpriteFrames" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/sprites/patrol/walk_01.png" id="1_fob6w"]
+[ext_resource type="Texture2D" path="res://assets/sprites/patrol/walk_02.png" id="2_cjdk2"]
+[ext_resource type="Texture2D" path="res://assets/sprites/patrol/walk_03.png" id="3_ui6pt"]
+[ext_resource type="Texture2D" path="res://assets/sprites/patrol/walk_04.png" id="4_oid0m"]
+[ext_resource type="Texture2D" path="res://assets/sprites/patrol/walk_05.png" id="5_713g4"]
+[ext_resource type="Texture2D" path="res://assets/sprites/patrol/walk_06.png" id="6_11cbx"]
+
+[resource]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("1_fob6w")
+}, {
+"duration": 1.0,
+"texture": ExtResource("2_cjdk2")
+}, {
+"duration": 1.0,
+"texture": ExtResource("3_ui6pt")
+}, {
+"duration": 1.0,
+"texture": ExtResource("4_oid0m")
+}, {
+"duration": 1.0,
+"texture": ExtResource("5_713g4")
+}, {
+"duration": 1.0,
+"texture": ExtResource("6_11cbx")
+}],
+"loop": 1,
+"name": &"walk",
+"speed": 10.0
+}]
+metadata/frame_size = Vector2(576, 448)
+metadata/pivot = Vector2(288, 440)
+metadata/display_scale = 0.5
+metadata/sprite_offset = Vector2(0, -216)
